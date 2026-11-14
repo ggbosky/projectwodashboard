@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SEED_CLIENTS, TEAM } from './data';
 import { today } from './lib';
-import { decryptData, encryptData, openToken, userId } from './auth';
+import { decryptData, encryptData, normCode, openToken, sealToken, userId } from './auth';
 
 /* Týmový režim: data žijí zašifrovaná v souboru crm.json na samostatné větvi tohoto repozitáře.
    Členové se hlásí jménem a heslem; heslo odemkne token a datový klíč z users.json. */
@@ -13,10 +13,9 @@ export const remote = Boolean(APP_REPO);
 
 const API = 'https://api.github.com';
 const FILE = 'crm.json';
-const USERS_PATH = 'public/users.json';
 const SESSION_KEY = 'projectwo-crm.session';
 const LOCAL_KEY = 'projectwo-crm.v1';
-const PALETTE = ['#FF5A0F', '#38BDF8', '#34D399', '#FBBF24', '#F472B6'];
+export const PALETTE = ['#FF5A0F', '#38BDF8', '#34D399', '#FBBF24', '#F472B6', '#A3E635', '#22D3EE', '#F87171'];
 const AI_AGENT = { id: 'claude', name: 'Claude', role: 'AI outreach agent', color: '#A78BFA', ai: true };
 
 function gh(token, path, opts = {}) {
@@ -25,7 +24,7 @@ function gh(token, path, opts = {}) {
     ...opts,
     headers: {
       Accept: 'application/vnd.github+json',
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'X-GitHub-Api-Version': '2022-11-28',
       ...opts.headers,
     },
@@ -94,84 +93,93 @@ export async function initData(token, key) {
   await post('refs', { ref: `refs/heads/${DATA_BRANCH}`, sha: commit.sha });
 }
 
-/* Seznam účtů (jména + zašifrované klíče) — veřejný soubor nasazený spolu s aplikací. */
-export async function fetchUsers() {
+const usersPath = `/repos/${APP_REPO}/contents/users.json`;
+
+/* Seznam účtů a pozvánka týmu. Leží vedle dat na větvi crm-data (veřejně čitelný, obsah zašifrovaný).
+   Starší instalace ho mají ještě jako statický soubor u aplikace — ten slouží jako záloha pro čtení. */
+export async function loadAccounts(token) {
+  try {
+    const res = await gh(token, `${usersPath}?ref=${DATA_BRANCH}`);
+    if (res.ok) {
+      const file = await res.json();
+      const parsed = JSON.parse(decode(file.content));
+      return { users: parsed.users || [], invite: parsed.invite || null, inviteCode: parsed.inviteCode || null, sha: file.sha };
+    }
+  } catch { /* zkusíme statický soubor */ }
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}users.json`, { cache: 'no-store' });
     const parsed = res.ok ? await res.json() : null;
-    return Array.isArray(parsed?.users) ? parsed.users : [];
+    return { users: Array.isArray(parsed?.users) ? parsed.users : [], invite: null, inviteCode: null, sha: null };
   } catch {
-    return [];
+    return { users: [], invite: null, inviteCode: null, sha: null };
   }
 }
 
-/* Uloží seznam účtů do repozitáře s aplikací (nasazovaná větev → web se sám znovu nasadí).
-   Když klíč do repozitáře s aplikací nesmí, soubor se stáhne k ručnímu nahrání. */
-export async function saveUsers(token, change) {
-  const path = `/repos/${APP_REPO}/contents/${USERS_PATH}`;
-  let current = null;
-  let sha;
-  if (APP_REPO) {
-    try {
-      const res = await gh(token, `${path}?ref=${encodeURIComponent(APP_BRANCH)}`);
-      if (res.ok) {
-        const file = await res.json();
-        sha = file.sha;
-        current = JSON.parse(decode(file.content)).users;
-      } else if (res.status === 404) current = [];
-    } catch { /* spadneme do ručního režimu */ }
+/* Načte aktuální seznam, aplikuje změnu a uloží. Při souběžném zápisu kolegy to zkusí znovu. */
+export async function saveAccounts(token, change) {
+  let res;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const current = await loadAccounts(token);
+    const { sha, ...next } = change(current);
+    res = await call(token, usersPath, {
+      method: 'PUT',
+      body: JSON.stringify({
+        message: 'CRM: aktualizace účtů',
+        content: encode(JSON.stringify({ v: 2, ...next }, null, 2)),
+        branch: DATA_BRANCH,
+        ...(current.sha ? { sha: current.sha } : {}),
+      }),
+    });
+    if (res.ok) return { ...next, sha: (await res.json()).content.sha };
+    if (res.status !== 409 && res.status !== 422) break;
   }
-  const users = change(Array.isArray(current) ? current : await fetchUsers());
-  const text = JSON.stringify({ v: 1, users }, null, 2);
-  if (APP_REPO && current) {
-    try {
-      const res = await gh(token, path, {
-        method: 'PUT',
-        body: JSON.stringify({ message: 'CRM: aktualizace účtů', content: encode(text), branch: APP_BRANCH, ...(sha ? { sha } : {}) }),
-      });
-      if (res.ok) return { users, committed: true };
-    } catch { /* ruční režim */ }
-  }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  a.download = 'users.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
-  return { users, committed: false };
+  await need(res, 'uložení účtů', token);
+  return null;
+}
+
+/* Vytvoří novou pozvánku: tajemství zamčené kódem + kód čitelný pro přihlášené členy. */
+export async function buildInvite(code, token, key) {
+  return {
+    invite: await sealToken('invite', code, JSON.stringify({ t: token, k: key })),
+    inviteCode: await encryptData(key, code),
+  };
 }
 
 const BAD_LOGIN = 'Nesprávné jméno nebo heslo.';
+const sameUser = (a, b) => userId(a) === userId(b);
 
 export function useSession() {
   const [session, setSession] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [accounts, setAccounts] = useState({ users: [], invite: null, inviteCode: null });
   const [ready, setReady] = useState(!remote);
 
   useEffect(() => {
     if (!remote) return;
     (async () => {
-      setUsers(await fetchUsers());
-      try {
-        const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
-        if (saved?.token && saved?.key && saved?.user?.id) {
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { /* nic */ }
+      const valid = saved?.token && saved?.key && saved?.user?.id;
+      setAccounts(await loadAccounts(valid ? saved.token : null));
+      if (valid) {
+        try {
           await verifyAccess(saved.token);
           setSession(saved);
+        } catch {
+          try { localStorage.removeItem(SESSION_KEY); } catch { /* nic */ }
         }
-      } catch {
-        try { localStorage.removeItem(SESSION_KEY); } catch { /* nic */ }
       }
       setReady(true);
     })();
   }, []);
 
-  const start = useCallback((name, token, key) => {
+  const start = useCallback((name, token, key, fresh) => {
     const s = { token, key, user: { id: userId(name), name: name.trim() } };
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* přihlášení jen pro tuto návštěvu */ }
-    setSession(s);
+    setSession({ ...s, fresh });
   }, []);
 
   const signIn = useCallback(async (name, password) => {
-    const entry = users.find((u) => userId(u.name) === userId(name));
+    const entry = accounts.users.find((u) => sameUser(u.name, name));
     if (!entry) throw new Error(BAD_LOGIN);
     let secret;
     try {
@@ -181,14 +189,30 @@ export function useSession() {
     }
     await verifyAccess(secret.t);
     start(entry.name, secret.t, secret.k);
-  }, [users, start]);
+  }, [accounts, start]);
+
+  /* Registrace: kód týmu odemkne přístup, nový člen si ho zamkne vlastním heslem. */
+  const register = useCallback(async ({ name, password, code, color }) => {
+    if (!accounts.invite) throw new Error('Tým zatím nemá kód pro nové členy. Požádejte kolegu, ať ho vytvoří v aplikaci v „Účtech týmu“.');
+    if (accounts.users.some((u) => sameUser(u.name, name))) throw new Error('Účet s tímto jménem už existuje. Zvolte jiné jméno, nebo se přihlaste.');
+    let secret;
+    try {
+      secret = JSON.parse(await openToken(accounts.invite, normCode(code)));
+    } catch {
+      throw new Error('Kód týmu nesouhlasí. Zkontrolujte ho, nebo si od kolegy vyžádejte aktuální.');
+    }
+    const entry = await sealToken(name, password, JSON.stringify(secret));
+    const saved = await saveAccounts(secret.t, (file) => ({ ...file, users: [...file.users.filter((u) => !sameUser(u.name, name)), entry] }));
+    setAccounts(saved);
+    start(name, secret.t, secret.k, { color });
+  }, [accounts, start]);
 
   const signOut = useCallback(() => {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* nic */ }
     setSession(null);
   }, []);
 
-  return { session, ready, users, setUsers, signIn, signOut, start };
+  return { session, ready, accounts, setAccounts, signIn, register, signOut, start };
 }
 
 /* Změny se drží jako operace, aby šly znovu přehrát nad čerstvými daty kolegů. */
@@ -200,8 +224,8 @@ function applyOps(base, ops) {
     else if (op.type === 'remove') clients = clients.filter((c) => c.id !== op.id);
     else if (op.type === 'member' && !team.some((m) => m.id === op.member.id)) {
       const humans = team.filter((m) => !m.ai).length;
-      team = [...team, { ...op.member, color: PALETTE[humans % PALETTE.length] }];
-    }
+      team = [...team, { ...op.member, color: op.member.color || PALETTE[humans % PALETTE.length] }];
+    } else if (op.type === 'profile') team = team.map((m) => (m.id === op.id ? { ...m, ...op.patch } : m));
   }
   return { team, clients };
 }
@@ -332,7 +356,7 @@ export function useCrm(session, onError) {
   const push = useCallback((op) => {
     const last = ops.current[ops.current.length - 1];
     // Souvislé úpravy téhož klienta (psaní poznámek) slučujeme do jedné operace.
-    if (!saving.current && op.type === 'patch' && last?.type === 'patch' && last.id === op.id) {
+    if (!saving.current && ['patch', 'profile'].includes(op.type) && last?.type === op.type && last.id === op.id) {
       ops.current = [...ops.current.slice(0, -1), { ...last, patch: { ...last.patch, ...op.patch } }];
     } else {
       ops.current = [...ops.current, op];
@@ -360,7 +384,7 @@ export function useCrm(session, onError) {
       if (!alive) return;
       if (!ok) fail.current?.('Nepodařilo se načíst data z GitHubu.');
       else if (!base.current.team.some((m) => m.id === me.id)) {
-        push({ type: 'member', member: { id: me.id, name: me.name, role: 'Člen týmu', ai: false } });
+        push({ type: 'member', member: { id: me.id, name: me.name, role: 'Člen týmu', ai: false, color: session.fresh?.color } });
       } else setStatus('synchronizováno');
       render();
       setLoading(false);
@@ -394,7 +418,9 @@ export function useCrm(session, onError) {
     else setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) }));
   }, [push]);
 
+  const updateProfile = useCallback((id, p) => { if (remote) push({ type: 'profile', id, patch: p }); }, [push]);
+
   const resetDemo = useCallback(() => { if (!remote) setData((d) => ({ ...d, clients: SEED_CLIENTS })); }, []);
 
-  return { clients: data.clients, team: data.team, loading, status, patch, add, remove, resetDemo };
+  return { clients: data.clients, team: data.team, loading, status, patch, add, remove, updateProfile, resetDemo };
 }

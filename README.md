@@ -18,15 +18,20 @@ React 18 · Vite · Tailwind CSS · Framer Motion · GitHub Pages + GitHub API
    - *Repository access* → *Only select repositories* → `projectwodashboard`
    - *Permissions* → *Repository permissions* → *Contents* → *Read and write*
    - platnost co nejdelší — po vypršení je potřeba nastavení zopakovat
-3. **První nastavení** — otevřete web, vložte token a založte účty (jméno + heslo) pro celý tým. Za 1–2 minuty se web sám znovu nasadí a kolegové se přihlásí jménem a heslem.
+3. **První nastavení** — otevřete web, vložte token a založte svůj účet (jméno + heslo).
 
-Účty se dál spravují přímo v aplikaci (ikona vedle odhlášení): přidání člena, změna hesla, odebrání.
+## Účty a personalizace
+
+- **Vytvoření účtu** — kolega na přihlašovací stránce zvolí „Vytvořit účet“, zadá vlastní jméno, heslo a **kód týmu**. Kód najde kterýkoli přihlášený člen v „Účtech týmu“ (ikona vedle odhlášení); tamtéž jde vygenerovat nový, čímž starý přestane platit.
+- **Můj profil** (ikona palety) — zobrazované jméno, role, barva (avatar i akcent celé aplikace), avatar, viditelné sekce dashboardu, výchozí pohled a měna, změna hesla. Nastavení se ukládá k účtu, takže platí na všech zařízeních.
+- Data klientů a pipeline jsou pro všechny společná; liší se jen vzhled a rozložení.
+- Zapomenuté heslo nastaví kolegovi kterýkoli přihlášený člen v „Účtech týmu“.
 
 ## Jak přihlášení a šifrování funguje
 
 Bez serveru není kde heslo ověřit, proto heslo slouží jako šifrovací klíč:
 
-- `public/users.json` obsahuje pro každého člena token a datový klíč, zamčené jeho heslem (PBKDF2, 600 000 iterací + AES-GCM). Správné heslo je odemkne, špatné ne.
+- `users.json` na větvi `crm-data` obsahuje pro každého člena token a datový klíč, zamčené jeho heslem (PBKDF2, 600 000 iterací + AES-GCM). Správné heslo je odemkne, špatné ne. Stejně je v něm zamčená pozvánka — kódem týmu.
 - `crm.json` na větvi `crm-data` je celý zašifrovaný datovým klíčem (AES-256-GCM). Repozitář je veřejný, ale bez hesla některého člena jsou data nečitelná.
 
 Důležité: oba soubory jsou veřejné. Kdo si `users.json` stáhne, může hesla zkoušet hádat u sebe bez omezení počtu pokusů — **používejte dlouhá, neuhodnutelná hesla** (ideálně z generátoru). Aplikace vyžaduje alespoň 10 znaků. Odebrání účtu nezneplatní klíče, které už dotyčný mohl získat — při odchodu člena vytvořte nový token a projděte nastavení znovu (založí se nový datový klíč; stará data je předtím potřeba vyexportovat).

@@ -48,7 +48,7 @@ export function Avatar({ id, size = 28, ring = true }) {
       }}
       title={m.name}
     >
-      {m.ai ? <Sparkles size={size * 0.5} /> : m.name[0]}
+      {m.ai ? <Sparkles size={size * 0.5} /> : m.emoji ? <span style={{ fontSize: size * 0.55, lineHeight: 1 }}>{m.emoji}</span> : m.name[0]}
     </span>
   );
 }

@@ -58,3 +58,11 @@ export async function decryptData(key, text) {
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await dataKey(key), unb64(data));
   return new TextDecoder().decode(plain);
 }
+
+/* Kód týmu: pozvánka, kterou si nový kolega při registraci odemkne přístup. */
+export function newInviteCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const chars = [...crypto.getRandomValues(new Uint8Array(16))].map((n) => alphabet[n % 32]);
+  return [0, 4, 8, 12].map((i) => chars.slice(i, i + 4).join('')).join('-');
+}
+export const normCode = (code) => code.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/(.{4})(?=.)/g, '$1-');

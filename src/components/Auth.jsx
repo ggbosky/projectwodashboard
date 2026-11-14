@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CircleCheck, ExternalLink, KeyRound, LoaderCircle, Lock, Plus, Trash2, User, UserPlus, X } from 'lucide-react';
-import { MIN_PASSWORD, newDataKey, sealToken, userId } from '../auth';
-import { APP_BRANCH, APP_REPO, initData, saveUsers, verifyAccess } from '../store';
+import { Check, Copy, ExternalLink, KeyRound, LoaderCircle, Lock, RefreshCw, Ticket, Trash2, User, UserPlus, X } from 'lucide-react';
+import { MIN_PASSWORD, decryptData, newDataKey, newInviteCode, sealToken, userId } from '../auth';
+import { APP_REPO, PALETTE, buildInvite, initData, saveAccounts, verifyAccess } from '../store';
 import { Shell } from './Modals';
-import { LogoMark } from './ui';
+import { LogoMark, Segmented } from './ui';
 
 function Frame({ children, wide }) {
   return (
@@ -14,7 +14,7 @@ function Frame({ children, wide }) {
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className={`glass relative w-full ${wide ? 'max-w-[520px]' : 'max-w-[400px]'} p-7`}
+        className={`glass relative w-full ${wide ? 'max-w-[520px]' : 'max-w-[420px]'} p-7`}
       >
         <div className="flex items-center gap-2.5">
           <LogoMark className="h-8 w-auto" />
@@ -27,196 +27,223 @@ function Frame({ children, wide }) {
   );
 }
 
-const ErrorBox = ({ children }) =>
+export const ErrorBox = ({ children }) =>
   children ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm leading-relaxed text-red-200">{children}</p> : null;
 
-function validateAccounts(rows, existing = []) {
-  const ids = rows.map((r) => userId(r.name));
-  if (rows.some((r) => userId(r.name).length < 2)) return 'Každý účet potřebuje jméno.';
-  if (new Set(ids).size !== ids.length || ids.some((id) => existing.includes(id))) return 'Jména účtů se nesmí opakovat.';
-  if (rows.some((r) => r.password.length < MIN_PASSWORD)) return `Heslo musí mít alespoň ${MIN_PASSWORD} znaků.`;
-  return '';
+export function Swatches({ value, onChange, label = 'Barva' }) {
+  return (
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+      {PALETTE.map((c) => (
+        <button
+          key={c}
+          type="button"
+          role="radio"
+          aria-checked={value === c}
+          aria-label={`Barva ${c}`}
+          onClick={() => onChange(c)}
+          className="flex h-8 w-8 items-center justify-center rounded-full transition hover:scale-110"
+          style={{ background: c, boxShadow: value === c ? `0 0 0 2px #111114, 0 0 0 4px ${c}` : 'none' }}
+        >
+          {value === c && <Check size={15} className="text-black" />}
+        </button>
+      ))}
+    </div>
+  );
 }
 
-/* Běžné přihlášení: jméno + heslo. */
-function Login({ auth }) {
-  const [f, setF] = useState({ name: '', password: '' });
+function Field({ id, label, icon, ...props }) {
+  return (
+    <div>
+      <label className="label" htmlFor={id}>{label}</label>
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">{icon}</span>
+        <input id={id} className="field !pl-9" required {...props} />
+      </div>
+    </div>
+  );
+}
+
+const Submit = ({ busy, children }) => (
+  <button className="btn-primary w-full disabled:opacity-60" disabled={busy}>
+    {busy && <LoaderCircle size={15} className="animate-spin" />}
+    {children}
+  </button>
+);
+
+/* Přihlášení + vytvoření vlastního účtu. */
+function Entrance({ auth }) {
+  const [mode, setMode] = useState('login');
+  const [f, setF] = useState({ name: '', password: '', code: '', color: PALETTE[1] });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
+    if (mode === 'register') {
+      if (userId(f.name).length < 2) return setError('Zadejte jméno.');
+      if (f.password.length < MIN_PASSWORD) return setError(`Heslo musí mít alespoň ${MIN_PASSWORD} znaků.`);
+    }
     setBusy(true);
     setError('');
     try {
-      await auth.signIn(f.name, f.password);
+      if (mode === 'login') await auth.signIn(f.name, f.password);
+      else await auth.register(f);
     } catch (err) {
       setError(err.message);
       setBusy(false);
     }
+    return undefined;
   };
 
   return (
     <Frame>
       <h1 className="mt-7 font-display text-3xl font-semibold leading-tight tracking-tight">
-        Vítejte <span className="font-serif text-[1.12em] font-normal italic text-brand">zpět</span>.
+        {mode === 'login' ? 'Vítejte ' : 'Přidejte se '}
+        <span className="font-serif text-[1.12em] font-normal italic text-brand">{mode === 'login' ? 'zpět' : 'k týmu'}</span>.
       </h1>
       <p className="mt-1.5 flex items-center gap-1.5 text-sm text-zinc-500"><Lock size={13} /> Interní nástroj — jen pro členy týmu.</p>
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
-        <div>
-          <label className="label" htmlFor="a-name">Jméno</label>
-          <div className="relative">
-            <User size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input id="a-name" className="field !pl-9" required autoFocus autoComplete="username" placeholder="Marek" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-          </div>
-        </div>
-        <div>
-          <label className="label" htmlFor="a-pass">Heslo</label>
-          <div className="relative">
-            <KeyRound size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-            <input id="a-pass" type="password" className="field !pl-9" required autoComplete="current-password" placeholder="••••••••••" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
-          </div>
-        </div>
+      <div className="mt-6">
+        <Segmented
+          id="auth"
+          value={mode}
+          onChange={(m) => { setMode(m); setError(''); }}
+          options={[{ value: 'login', label: 'Přihlášení' }, { value: 'register', label: 'Vytvořit účet' }]}
+        />
+      </div>
+
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <Field id="a-name" label="Jméno" icon={<User size={15} />} autoFocus autoComplete="username" placeholder="Marek" value={f.name} onChange={set('name')} />
+        <Field
+          id="a-pass"
+          label={mode === 'login' ? 'Heslo' : `Heslo (min. ${MIN_PASSWORD} znaků)`}
+          icon={<KeyRound size={15} />}
+          type="password"
+          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          placeholder="••••••••••"
+          value={f.password}
+          onChange={set('password')}
+        />
+        {mode === 'register' && (
+          <>
+            <div>
+              <Field id="a-code" label="Kód týmu" icon={<Ticket size={15} />} autoComplete="off" spellCheck={false} placeholder="XXXX-XXXX-XXXX-XXXX" value={f.code} onChange={set('code')} />
+              <p className="mt-1.5 text-xs text-zinc-500">Kód vám pošle kolega — najde ho v aplikaci v „Účtech týmu“.</p>
+            </div>
+            <div>
+              <span className="label">Vaše barva</span>
+              <Swatches value={f.color} onChange={(color) => setF((p) => ({ ...p, color }))} />
+              <p className="mt-1.5 text-xs text-zinc-500">Avatar, ikonu, roli a rozložení si upravíte po přihlášení v profilu.</p>
+            </div>
+          </>
+        )}
         <ErrorBox>{error}</ErrorBox>
-        <button className="btn-primary w-full disabled:opacity-60" disabled={busy}>
-          {busy && <LoaderCircle size={15} className="animate-spin" />}
-          Přihlásit se
-        </button>
+        <Submit busy={busy}>{mode === 'login' ? 'Přihlásit se' : 'Vytvořit účet'}</Submit>
       </form>
     </Frame>
   );
 }
 
-/* První spuštění: vlastník jednou vloží přístupový klíč a založí účty týmu. */
+/* Úplně první spuštění: vlastník vloží GitHub token a založí svůj účet. */
 function Setup({ auth }) {
-  const [token, setToken] = useState('');
-  const [rows, setRows] = useState([{ name: '', password: '' }, { name: '', password: '' }, { name: '', password: '' }]);
+  const [f, setF] = useState({ token: '', name: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [manual, setManual] = useState(null);
-  const setRow = (i, patch) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
 
   const submit = async (e) => {
     e.preventDefault();
-    const filled = rows.filter((r) => r.name.trim() || r.password);
-    const problem = filled.length ? validateAccounts(filled) : 'Založte alespoň jeden účet.';
-    if (problem) return setError(problem);
+    if (userId(f.name).length < 2) return setError('Zadejte jméno.');
+    if (f.password.length < MIN_PASSWORD) return setError(`Heslo musí mít alespoň ${MIN_PASSWORD} znaků.`);
     setBusy(true);
     setError('');
     try {
-      const t = token.trim();
+      const t = f.token.trim();
       const k = newDataKey();
       await verifyAccess(t);
       await initData(t, k);
-      const secret = JSON.stringify({ t, k });
-      const sealed = await Promise.all(filled.map((r) => sealToken(r.name, r.password, secret)));
-      const { users, committed } = await saveUsers(t, () => sealed);
-      auth.setUsers(users);
-      if (committed) auth.start(filled[0].name, t, k);
-      else setManual({ name: filled[0].name, t, k });
+      const owner = await sealToken(f.name, f.password, JSON.stringify({ t, k }));
+      const invite = await buildInvite(newInviteCode(), t, k);
+      auth.setAccounts(await saveAccounts(t, () => ({ users: [owner], ...invite })));
+      auth.start(f.name, t, k);
     } catch (err) {
       setError(err.message);
+      setBusy(false);
     }
-    setBusy(false);
     return undefined;
   };
-
-  if (manual) {
-    return (
-      <Frame wide>
-        <div className="mt-7 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-300/40"><CircleCheck size={22} /></div>
-        <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">Účty jsou připravené</h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-          Stáhl se soubor <b className="font-medium text-zinc-200">users.json</b>. Nahrajte ho na GitHubu do repozitáře{' '}
-          <b className="font-medium text-zinc-200">{APP_REPO || 's aplikací'}</b> do složky <b className="font-medium text-zinc-200">public/</b> na větvi <b className="font-medium text-zinc-200">{APP_BRANCH}</b>.
-          Po nasazení (1–2 minuty) se může přihlásit celý tým.
-        </p>
-        <button className="btn-primary mt-6 w-full" onClick={() => auth.start(manual.name, manual.t, manual.k)}>Pokračovat do aplikace</button>
-      </Frame>
-    );
-  }
 
   return (
     <Frame wide>
       <h1 className="mt-7 font-display text-3xl font-semibold leading-tight tracking-tight">
         První <span className="font-serif text-[1.12em] font-normal italic text-brand">nastavení</span>
       </h1>
-      <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">Děláte jen jednou. Kolegové se pak hlásí už jen jménem a heslem.</p>
-
-      <form onSubmit={submit} className="mt-6 space-y-5">
+      <p className="mt-1.5 text-sm leading-relaxed text-zinc-500">Děláte jen jednou. Kolegové si pak účty vytvoří sami pomocí kódu týmu.</p>
+      <form onSubmit={submit} className="mt-6 space-y-4">
         <div>
-          <label className="label" htmlFor="s-token">1 · GitHub token</label>
-          <input id="s-token" type="password" className="field font-mono" required autoComplete="off" spellCheck={false} placeholder="github_pat_…" value={token} onChange={(e) => setToken(e.target.value)} />
+          <label className="label" htmlFor="s-token">GitHub token</label>
+          <input id="s-token" type="password" className="field font-mono" required autoComplete="off" spellCheck={false} placeholder="github_pat_…" value={f.token} onChange={set('token')} />
           <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
-            Fine-grained token pro repozitář <b className="font-medium text-zinc-300">{APP_REPO}</b> s právem{' '}
-            <b className="font-medium text-zinc-300">Contents: Read and write</b>. V aplikaci se uloží jen zašifrovaně.{' '}
+            Token pro repozitář <b className="font-medium text-zinc-300">{APP_REPO}</b> s právem <b className="font-medium text-zinc-300">Contents: Read and write</b>. Uloží se jen zašifrovaně.{' '}
             <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-sky-400 hover:text-sky-300">
               Vytvořit <ExternalLink size={11} />
             </a>
           </p>
         </div>
-
-        <div>
-          <span className="label">2 · Účty týmu (první je váš)</span>
-          <div className="space-y-2">
-            {rows.map((r, i) => (
-              <div key={i} className="grid grid-cols-[1fr_1.2fr_auto] gap-2">
-                <input className="field" placeholder="Jméno" aria-label={`Jméno ${i + 1}`} autoComplete="off" value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} />
-                <input className="field" type="password" placeholder={`Heslo (min. ${MIN_PASSWORD} znaků)`} aria-label={`Heslo ${i + 1}`} autoComplete="new-password" value={r.password} onChange={(e) => setRow(i, { password: e.target.value })} />
-                <button type="button" className="btn-ghost !px-2.5" aria-label="Odebrat řádek" disabled={rows.length === 1} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}><X size={14} /></button>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="mt-2 inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white" onClick={() => setRows((rs) => [...rs, { name: '', password: '' }])}>
-            <Plus size={12} /> Přidat dalšího člena
-          </button>
-        </div>
-
+        <Field id="s-name" label="Vaše jméno" icon={<User size={15} />} autoComplete="username" placeholder="Marek" value={f.name} onChange={set('name')} />
+        <Field id="s-pass" label={`Heslo (min. ${MIN_PASSWORD} znaků)`} icon={<KeyRound size={15} />} type="password" autoComplete="new-password" placeholder="••••••••••" value={f.password} onChange={set('password')} />
         <ErrorBox>{error}</ErrorBox>
-        <button className="btn-primary w-full disabled:opacity-60" disabled={busy || !token.trim()}>
-          {busy && <LoaderCircle size={15} className="animate-spin" />}
-          Vytvořit účty
-        </button>
+        <Submit busy={busy}>Založit CRM</Submit>
       </form>
     </Frame>
   );
 }
 
 export default function Auth({ auth }) {
-  return auth.users.length ? <Login auth={auth} /> : <Setup auth={auth} />;
+  return auth.accounts.users.length ? <Entrance auth={auth} /> : <Setup auth={auth} />;
 }
 
-/* Správa účtů pro přihlášené: přidat člena, změnit heslo, odebrat. */
+/* Účty týmu: kód pro nové členy, seznam účtů, obnova hesla kolegovi. */
 export function AccountsModal({ session, auth, onClose, notify }) {
+  const { accounts } = auth;
+  const [code, setCode] = useState('');
   const [f, setF] = useState({ name: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    if (!accounts.inviteCode) setCode('');
+    else decryptData(session.key, accounts.inviteCode).then((c) => alive && setCode(c)).catch(() => alive && setCode(''));
+    return () => { alive = false; };
+  }, [accounts.inviteCode, session.key]);
 
   const apply = async (change, done) => {
     setBusy(true);
     setError('');
     try {
-      const { users, committed } = await saveUsers(session.token, change);
-      auth.setUsers(users);
-      notify(committed ? `${done} · web se do 2 minut znovu nasadí` : `${done} · stažený users.json nahrajte do složky public/`, !committed);
-      setF({ name: '', password: '' });
-    } catch {
-      setError('Účty se nepodařilo uložit. Zkuste to znovu.');
+      auth.setAccounts(await saveAccounts(session.token, change));
+      notify(done);
+    } catch (err) {
+      setError(err.message || 'Účty se nepodařilo uložit. Zkuste to znovu.');
     }
     setBusy(false);
   };
 
-  const submit = async (e) => {
+  const rotate = async () => {
+    const invite = await buildInvite(newInviteCode(), session.token, session.key);
+    await apply((file) => ({ ...file, ...invite }), 'Nový kód týmu je připravený');
+  };
+
+  const reset = async (e) => {
     e.preventDefault();
-    const problem = validateAccounts([f]);
-    if (problem) return setError(problem);
+    if (!accounts.users.some((u) => userId(u.name) === userId(f.name))) return setError('Takový účet neexistuje. Nový člen si účet vytvoří sám pomocí kódu týmu.');
+    if (f.password.length < MIN_PASSWORD) return setError(`Heslo musí mít alespoň ${MIN_PASSWORD} znaků.`);
     const entry = await sealToken(f.name, f.password, JSON.stringify({ t: session.token, k: session.key }));
-    const exists = auth.users.some((u) => userId(u.name) === userId(f.name));
-    return apply(
-      (users) => [...users.filter((u) => userId(u.name) !== userId(f.name)), entry],
-      exists ? `Heslo pro ${entry.name} změněno` : `Účet ${entry.name} přidán`,
-    );
+    await apply((file) => ({ ...file, users: file.users.map((u) => (userId(u.name) === userId(f.name) ? { ...entry, name: u.name } : u)) }), `Heslo pro ${f.name} nastaveno`);
+    setF({ name: '', password: '' });
+    return undefined;
   };
 
   return (
@@ -229,8 +256,34 @@ export function AccountsModal({ session, auth, onClose, notify }) {
           <button onClick={onClose} className="btn-ghost !p-2" aria-label="Zavřít"><X size={16} /></button>
         </div>
 
+        <div className="mt-4 rounded-2xl border border-brand/30 bg-brand/[0.07] p-4">
+          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-zinc-400"><Ticket size={13} /> Kód týmu pro nové členy</div>
+          {code ? (
+            <>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="flex-1 select-all rounded-xl bg-black/40 px-3 py-2 text-center font-mono text-[15px] tracking-wider" data-testid="invite-code">{code}</code>
+                <button
+                  className="btn-ghost !p-2.5"
+                  aria-label="Zkopírovat kód"
+                  onClick={() => navigator.clipboard?.writeText(code).then(() => notify('Kód zkopírován'), () => notify('Kód se nepodařilo zkopírovat', true))}
+                >
+                  <Copy size={15} />
+                </button>
+                <button className="btn-ghost !p-2.5" aria-label="Vygenerovat nový kód" title="Vygenerovat nový kód (starý přestane platit)" disabled={busy} onClick={rotate}>
+                  <RefreshCw size={15} />
+                </button>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-500">Pošlete ho kolegovi soukromě. Na přihlašovací stránce zvolí „Vytvořit účet“ a nastaví si vlastní jméno a heslo.</p>
+            </>
+          ) : (
+            <button className="btn-primary mt-3 w-full disabled:opacity-60" disabled={busy} onClick={rotate}>
+              {busy ? <LoaderCircle size={15} className="animate-spin" /> : <UserPlus size={15} />} Vytvořit kód týmu
+            </button>
+          )}
+        </div>
+
         <ul className="mt-4 divide-y divide-white/[0.06] rounded-2xl border border-white/[0.08] bg-white/[0.03]">
-          {auth.users.map((u) => {
+          {accounts.users.map((u) => {
             const self = userId(u.name) === session.user.id;
             return (
               <li key={u.name} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -242,7 +295,7 @@ export function AccountsModal({ session, auth, onClose, notify }) {
                     className="ml-auto text-zinc-500 transition hover:text-red-400 disabled:opacity-40"
                     disabled={busy}
                     aria-label={`Odebrat účet ${u.name}`}
-                    onClick={() => window.confirm(`Odebrat účet ${u.name}?`) && apply((users) => users.filter((x) => x.name !== u.name), `Účet ${u.name} odebrán`)}
+                    onClick={() => window.confirm(`Odebrat účet ${u.name}?`) && apply((file) => ({ ...file, users: file.users.filter((x) => x.name !== u.name) }), `Účet ${u.name} odebrán`)}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -252,18 +305,14 @@ export function AccountsModal({ session, auth, onClose, notify }) {
           })}
         </ul>
 
-        <form onSubmit={submit} className="mt-5 space-y-3">
-          <span className="label">Přidat člena nebo změnit heslo</span>
+        <form onSubmit={reset} className="mt-5 space-y-3">
+          <span className="label">Kolega zapomněl heslo?</span>
           <div className="grid grid-cols-2 gap-2">
-            <input className="field" placeholder="Jméno" aria-label="Jméno účtu" autoComplete="off" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-            <input className="field" type="password" placeholder={`Heslo (min. ${MIN_PASSWORD})`} aria-label="Nové heslo" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
+            <input className="field" placeholder="Jméno účtu" aria-label="Jméno účtu" autoComplete="off" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+            <input className="field" type="password" placeholder="Nové heslo" aria-label="Nové heslo" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
           </div>
           <ErrorBox>{error}</ErrorBox>
-          <button className="btn-primary w-full disabled:opacity-60" disabled={busy || !f.name.trim() || !f.password}>
-            {busy ? <LoaderCircle size={15} className="animate-spin" /> : <UserPlus size={15} />}
-            Uložit účet
-          </button>
-          <p className="text-xs leading-relaxed text-zinc-500">Existující jméno = změna hesla. Zapomenuté heslo takto nastaví kterýkoli přihlášený kolega.</p>
+          <button className="btn-ghost w-full disabled:opacity-50" disabled={busy || !f.name.trim() || !f.password}>Nastavit nové heslo</button>
         </form>
       </div>
     </Shell>

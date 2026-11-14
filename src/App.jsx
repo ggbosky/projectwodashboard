@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Columns3, Globe, List, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
+import { Columns3, Globe, List, Palette, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
 import { RATES } from './data';
 import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
 import { remote, useCrm, useSession } from './store';
@@ -9,6 +9,7 @@ import { Kpis, TeamCards } from './components/Dashboard';
 import { Kanban, ListView } from './components/Pipeline';
 import Drawer from './components/Drawer';
 import Auth, { AccountsModal } from './components/Auth';
+import ProfileModal from './components/Profile';
 import { CollisionModal, NewClientModal, Toast } from './components/Modals';
 
 const PREFS = 'projectwo-crm.prefs';
@@ -37,6 +38,7 @@ export default function App() {
 
 function Crm({ session, auth }) {
   const [accounts, setAccounts] = useState(false);
+  const [profile, setProfile] = useState(false);
   const prefs = useMemo(loadPrefs, []);
   const uid = session?.user?.id;
   const [me, setMe] = useState(remote ? uid : prefs.me ?? 'marek');
@@ -163,6 +165,29 @@ function Crm({ session, auth }) {
   const free = clients.length - taken;
   const open = clients.find((c) => c.id === openId);
 
+  /* Osobní vzhled a rozložení přihlášeného člena. */
+  const my = remote ? memberOf(uid) : null;
+  const myPrefs = my?.prefs || {};
+  const myColor = my?.color;
+  useEffect(() => {
+    if (!myColor) return undefined;
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(myColor.slice(i, i + 2), 16));
+    const soft = [r, g, b].map((v) => Math.round(v + (255 - v) * 0.22));
+    const root = document.documentElement.style;
+    root.setProperty('--brand', `${r} ${g} ${b}`);
+    root.setProperty('--brand-soft', soft.join(' '));
+    return () => { root.removeProperty('--brand'); root.removeProperty('--brand-soft'); };
+  }, [myColor]);
+
+  const prefsApplied = useRef(false);
+  useEffect(() => {
+    if (!remote || store.loading || prefsApplied.current || !my) return;
+    prefsApplied.current = true;
+    if (myPrefs.view) setView(myPrefs.view);
+    if (myPrefs.currency) setCurrency(myPrefs.currency);
+    if (myPrefs.mine) setOwnerFilter(uid);
+  }, [store.loading, my]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (store.loading) return <Splash />;
 
   return (
@@ -226,6 +251,9 @@ function Crm({ session, auth }) {
             </motion.button>
             {remote && (
               <>
+                <button className="btn-ghost !py-1 !pl-1 !pr-2.5" onClick={() => setProfile(true)} title="Můj profil a vzhled" aria-label="Můj profil">
+                  <Avatar id={uid} size={26} /> <Palette size={14} className="text-zinc-400" />
+                </button>
                 <button className="btn-ghost !p-2" onClick={() => setAccounts(true)} title="Účty týmu" aria-label="Účty týmu">
                   <UserCog size={16} />
                 </button>
@@ -242,7 +270,7 @@ function Crm({ session, auth }) {
         {/* Titulek + geografický filtr */}
         <div className="flex flex-wrap items-end justify-between gap-5">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">Interní přehled studia · listopad 2026</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500">{my ? `Ahoj, ${my.name} · ` : ''}Interní přehled studia</p>
             <h1 className="mt-2 font-display text-4xl font-semibold leading-[1.02] tracking-[-0.03em] sm:text-5xl">
               Každý lead má <span className="font-serif text-[1.12em] font-normal italic tracking-normal text-brand">svého</span> člověka.
             </h1>
@@ -259,8 +287,10 @@ function Crm({ session, auth }) {
           />
         </div>
 
-        <div className="mt-7"><Kpis clients={forKpis} currency={currency} /></div>
+        {myPrefs.kpis !== false && <div className="mt-7"><Kpis clients={forKpis} currency={currency} /></div>}
 
+        {myPrefs.team !== false && (
+          <>
         <div className="mt-10 flex items-baseline justify-between">
           <h2 className="font-display text-xl font-semibold tracking-tight">Tým <span className="font-serif text-[1.15em] font-normal italic text-zinc-400">Project Two</span></h2>
           {ownerFilter && (
@@ -270,6 +300,8 @@ function Crm({ session, auth }) {
           )}
         </div>
         <div className="mt-4"><TeamCards clients={byRegion} currency={currency} ownerFilter={ownerFilter} onOwnerFilter={setOwnerFilter} /></div>
+          </>
+        )}
 
         {/* Pipeline toolbar */}
         <div className="mt-12 flex flex-wrap items-center gap-3">
@@ -370,6 +402,9 @@ function Crm({ session, auth }) {
       </AnimatePresence>
       <AnimatePresence>
         {collision && <CollisionModal key="collision" collision={collision} onClose={() => setCollision(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {profile && <ProfileModal key="profile" session={session} auth={auth} onUpdate={(p) => store.updateProfile(uid, p)} onClose={() => setProfile(false)} notify={notify} />}
       </AnimatePresence>
       <AnimatePresence>
         {accounts && <AccountsModal key="accounts" session={session} auth={auth} onClose={() => setAccounts(false)} notify={notify} />}

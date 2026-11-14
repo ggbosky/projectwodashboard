@@ -5,7 +5,7 @@ export default {
     extend: {
       colors: {
         ink: { 950: '#09090B', 900: '#111114', 800: '#17171B', 700: '#1F1F25' },
-        brand: { DEFAULT: '#FF5A0F', soft: '#FF7A3D' },
+        brand: { DEFAULT: 'rgb(var(--brand) / <alpha-value>)', soft: 'rgb(var(--brand-soft) / <alpha-value>)' },
       },
       fontFamily: {
         sans: ['"Inter Variable"', 'Inter', 'system-ui', 'sans-serif'],
