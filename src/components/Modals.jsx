@@ -5,7 +5,7 @@ import { PACKAGES, STAGES } from '../data';
 import { getTeam, findDuplicates, memberOf } from '../lib';
 import { Avatar, LinkedInGlyph, Segmented, StagePill } from './ui';
 
-function Shell({ children, onClose, label, wide }) {
+export function Shell({ children, onClose, label, wide }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);

@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SEED_CLIENTS, TEAM } from './data';
 import { today } from './lib';
+import { openToken, userId } from './auth';
 
 /* Týmový režim: data žijí v souboru crm.json v soukromém GitHub repozitáři.
-   Přihlášení = osobní GitHub token; přístup má jen ten, kdo má do repozitáře právo zápisu. */
+   Členové se hlásí jménem a heslem; heslo odemkne zašifrovaný přístupový klíč z users.json. */
 export const DATA_REPO = import.meta.env.VITE_DATA_REPO || '';
+export const APP_REPO = import.meta.env.VITE_APP_REPO || '';
 export const remote = Boolean(DATA_REPO);
 
 const API = 'https://api.github.com';
 const FILE = 'crm.json';
-const TOKEN_KEY = 'projectwo-crm.token';
+const USERS_PATH = 'public/users.json';
+const SESSION_KEY = 'projectwo-crm.session';
 const LOCAL_KEY = 'projectwo-crm.v1';
 const PALETTE = ['#FF5A0F', '#38BDF8', '#34D399', '#FBBF24', '#F472B6'];
 const AI_AGENT = { id: 'claude', name: 'Claude', role: 'AI outreach agent', color: '#A78BFA', ai: true };
@@ -35,54 +38,116 @@ const encode = (text) => {
 };
 const decode = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (ch) => ch.charCodeAt(0)));
 
-/* Ověří token a přístup k datovému repozitáři. Vrací session, nebo vyhodí srozumitelnou chybu. */
-async function authenticate(token) {
+/* Ověří, že klíč smí zapisovat do soukromého datového repozitáře. */
+export async function verifyAccess(token) {
   let res;
   try {
-    res = await gh(token, '/user');
+    res = await gh(token, `/repos/${DATA_REPO}`);
   } catch {
     throw new Error('Nepodařilo se spojit s GitHubem. Zkontrolujte připojení.');
   }
-  if (res.status === 401) throw new Error('Token není platný nebo už vypršel.');
-  if (!res.ok) throw new Error('GitHub přihlášení odmítl. Zkuste to za chvíli.');
-  const user = await res.json();
-
-  const repoRes = await gh(token, `/repos/${DATA_REPO}`);
-  if (!repoRes.ok) throw new Error(`Token nemá přístup k repozitáři ${DATA_REPO}. Zkontrolujte oprávnění tokenu a pozvánku do repozitáře.`);
-  const repo = await repoRes.json();
+  if (res.status === 401) throw new Error('Přístupový klíč není platný nebo už vypršel. Je potřeba znovu projít nastavení.');
+  if (!res.ok) throw new Error(`Klíč nemá přístup k repozitáři ${DATA_REPO}.`);
+  const repo = await res.json();
   if (!repo.private) throw new Error(`Repozitář ${DATA_REPO} je veřejný. Data klientů se ukládají jen do soukromého repozitáře.`);
-  if (!repo.permissions?.push) throw new Error(`V repozitáři ${DATA_REPO} nemáte právo zápisu.`);
-
-  return { token, user: { id: user.login, name: (user.name || user.login).split(' ')[0] } };
+  if (!repo.permissions?.push) throw new Error(`Klíč nemá v repozitáři ${DATA_REPO} právo zápisu.`);
 }
+
+/* Seznam účtů (jména + zašifrované klíče) — veřejný soubor nasazený spolu s aplikací. */
+export async function fetchUsers() {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}users.json`, { cache: 'no-store' });
+    const parsed = res.ok ? await res.json() : null;
+    return Array.isArray(parsed?.users) ? parsed.users : [];
+  } catch {
+    return [];
+  }
+}
+
+/* Uloží seznam účtů do repozitáře s aplikací (větev main → web se sám znovu nasadí).
+   Když klíč do repozitáře s aplikací nesmí, soubor se stáhne k ručnímu nahrání. */
+export async function saveUsers(token, change) {
+  const path = `/repos/${APP_REPO}/contents/${USERS_PATH}`;
+  let current = null;
+  let sha;
+  if (APP_REPO) {
+    try {
+      const res = await gh(token, `${path}?ref=main`);
+      if (res.ok) {
+        const file = await res.json();
+        sha = file.sha;
+        current = JSON.parse(decode(file.content)).users;
+      } else if (res.status === 404) current = [];
+    } catch { /* spadneme do ručního režimu */ }
+  }
+  const users = change(Array.isArray(current) ? current : await fetchUsers());
+  const text = JSON.stringify({ v: 1, users }, null, 2);
+  if (APP_REPO && current) {
+    try {
+      const res = await gh(token, path, {
+        method: 'PUT',
+        body: JSON.stringify({ message: 'CRM: aktualizace účtů', content: encode(text), branch: 'main', ...(sha ? { sha } : {}) }),
+      });
+      if (res.ok) return { users, committed: true };
+    } catch { /* ruční režim */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  a.download = 'users.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  return { users, committed: false };
+}
+
+const BAD_LOGIN = 'Nesprávné jméno nebo heslo.';
 
 export function useSession() {
   const [session, setSession] = useState(null);
+  const [users, setUsers] = useState([]);
   const [ready, setReady] = useState(!remote);
 
   useEffect(() => {
     if (!remote) return;
-    let token = null;
-    try { token = localStorage.getItem(TOKEN_KEY); } catch { /* bez úložiště */ }
-    if (!token) { setReady(true); return; }
-    authenticate(token)
-      .then(setSession)
-      .catch(() => { try { localStorage.removeItem(TOKEN_KEY); } catch { /* nic */ } })
-      .finally(() => setReady(true));
+    (async () => {
+      setUsers(await fetchUsers());
+      try {
+        const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
+        if (saved?.token && saved?.user?.id) {
+          await verifyAccess(saved.token);
+          setSession(saved);
+        }
+      } catch {
+        try { localStorage.removeItem(SESSION_KEY); } catch { /* nic */ }
+      }
+      setReady(true);
+    })();
   }, []);
 
-  const signIn = useCallback(async (token) => {
-    const s = await authenticate(token.trim());
-    try { localStorage.setItem(TOKEN_KEY, s.token); } catch { /* přihlášení jen pro tuto návštěvu */ }
+  const start = useCallback((name, token) => {
+    const s = { token, user: { id: userId(name), name: name.trim() } };
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* přihlášení jen pro tuto návštěvu */ }
     setSession(s);
   }, []);
 
+  const signIn = useCallback(async (name, password) => {
+    const entry = users.find((u) => userId(u.name) === userId(name));
+    if (!entry) throw new Error(BAD_LOGIN);
+    let token;
+    try {
+      token = await openToken(entry, password);
+    } catch {
+      throw new Error(BAD_LOGIN);
+    }
+    await verifyAccess(token);
+    start(entry.name, token);
+  }, [users, start]);
+
   const signOut = useCallback(() => {
-    try { localStorage.removeItem(TOKEN_KEY); } catch { /* nic */ }
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* nic */ }
     setSession(null);
   }, []);
 
-  return { session, ready, signIn, signOut };
+  return { session, ready, users, setUsers, signIn, signOut, start };
 }
 
 /* Změny se drží jako operace, aby šly znovu přehrát nad čerstvými daty kolegů. */

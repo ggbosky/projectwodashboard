@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Columns3, Globe, List, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
+import { Columns3, Globe, List, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
 import { RATES } from './data';
 import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
 import { remote, useCrm, useSession } from './store';
@@ -8,7 +8,7 @@ import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/u
 import { Kpis, TeamCards } from './components/Dashboard';
 import { Kanban, ListView } from './components/Pipeline';
 import Drawer from './components/Drawer';
-import Auth from './components/Auth';
+import Auth, { AccountsModal } from './components/Auth';
 import { CollisionModal, NewClientModal, Toast } from './components/Modals';
 
 const PREFS = 'projectwo-crm.prefs';
@@ -28,13 +28,15 @@ function Splash() {
 }
 
 export default function App() {
-  const { session, ready, signIn, signOut } = useSession();
+  const auth = useSession();
+  const { session, ready } = auth;
   if (!ready) return <Splash />;
-  if (remote && !session) return <Auth signIn={signIn} />;
-  return <Crm key={session?.user?.id || 'local'} session={session} signOut={signOut} />;
+  if (remote && !session) return <Auth auth={auth} />;
+  return <Crm key={session?.user?.id || 'local'} session={session} auth={auth} />;
 }
 
-function Crm({ session, signOut }) {
+function Crm({ session, auth }) {
+  const [accounts, setAccounts] = useState(false);
   const prefs = useMemo(loadPrefs, []);
   const uid = session?.user?.id;
   const [me, setMe] = useState(remote ? uid : prefs.me ?? 'marek');
@@ -223,9 +225,14 @@ function Crm({ session, signOut }) {
               <span className="hidden items-center gap-1 border-l border-black/20 pl-2 text-black/70 sm:flex"><LinkedInGlyph size={13} /> Import</span>
             </motion.button>
             {remote && (
-              <button className="btn-ghost !p-2" onClick={signOut} title={`Odhlásit (@${session.user.id})`} aria-label="Odhlásit se">
-                <LogOut size={16} />
-              </button>
+              <>
+                <button className="btn-ghost !p-2" onClick={() => setAccounts(true)} title="Účty týmu" aria-label="Účty týmu">
+                  <UserCog size={16} />
+                </button>
+                <button className="btn-ghost !p-2" onClick={auth.signOut} title={`Odhlásit (${session.user.name})`} aria-label="Odhlásit se">
+                  <LogOut size={16} />
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -363,6 +370,9 @@ function Crm({ session, signOut }) {
       </AnimatePresence>
       <AnimatePresence>
         {collision && <CollisionModal key="collision" collision={collision} onClose={() => setCollision(null)} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {accounts && <AccountsModal key="accounts" session={session} auth={auth} onClose={() => setAccounts(false)} notify={notify} />}
       </AnimatePresence>
       <AnimatePresence>{toast && <Toast key={toast.key} toast={toast} />}</AnimatePresence>
     </div>
