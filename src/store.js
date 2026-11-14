@@ -7,6 +7,8 @@ import { openToken, userId } from './auth';
    Členové se hlásí jménem a heslem; heslo odemkne zašifrovaný přístupový klíč z users.json. */
 export const DATA_REPO = import.meta.env.VITE_DATA_REPO || '';
 export const APP_REPO = import.meta.env.VITE_APP_REPO || '';
+// Větev, ze které se web nasazuje — sem se ukládá seznam účtů.
+export const APP_BRANCH = import.meta.env.VITE_APP_BRANCH || 'main';
 export const remote = Boolean(DATA_REPO);
 
 const API = 'https://api.github.com';
@@ -64,7 +66,7 @@ export async function fetchUsers() {
   }
 }
 
-/* Uloží seznam účtů do repozitáře s aplikací (větev main → web se sám znovu nasadí).
+/* Uloží seznam účtů do repozitáře s aplikací (nasazovaná větev → web se sám znovu nasadí).
    Když klíč do repozitáře s aplikací nesmí, soubor se stáhne k ručnímu nahrání. */
 export async function saveUsers(token, change) {
   const path = `/repos/${APP_REPO}/contents/${USERS_PATH}`;
@@ -72,7 +74,7 @@ export async function saveUsers(token, change) {
   let sha;
   if (APP_REPO) {
     try {
-      const res = await gh(token, `${path}?ref=main`);
+      const res = await gh(token, `${path}?ref=${encodeURIComponent(APP_BRANCH)}`);
       if (res.ok) {
         const file = await res.json();
         sha = file.sha;
@@ -86,7 +88,7 @@ export async function saveUsers(token, change) {
     try {
       const res = await gh(token, path, {
         method: 'PUT',
-        body: JSON.stringify({ message: 'CRM: aktualizace účtů', content: encode(text), branch: 'main', ...(sha ? { sha } : {}) }),
+        body: JSON.stringify({ message: 'CRM: aktualizace účtů', content: encode(text), branch: APP_BRANCH, ...(sha ? { sha } : {}) }),
       });
       if (res.ok) return { users, committed: true };
     } catch { /* ruční režim */ }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CircleCheck, ExternalLink, KeyRound, LoaderCircle, Lock, Plus, Trash2, User, UserPlus, X } from 'lucide-react';
 import { MIN_PASSWORD, sealToken, userId } from '../auth';
-import { APP_REPO, DATA_REPO, saveUsers, verifyAccess } from '../store';
+import { APP_BRANCH, APP_REPO, DATA_REPO, saveUsers, verifyAccess } from '../store';
 import { Shell } from './Modals';
 import { LogoMark } from './ui';
 
@@ -125,7 +125,7 @@ function Setup({ auth }) {
         <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight">Účty jsou připravené</h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">
           Stáhl se soubor <b className="font-medium text-zinc-200">users.json</b>. Nahrajte ho na GitHubu do repozitáře{' '}
-          <b className="font-medium text-zinc-200">{APP_REPO || 's aplikací'}</b> do složky <b className="font-medium text-zinc-200">public/</b> na větvi main.
+          <b className="font-medium text-zinc-200">{APP_REPO || 's aplikací'}</b> do složky <b className="font-medium text-zinc-200">public/</b> na větvi <b className="font-medium text-zinc-200">{APP_BRANCH}</b>.
           Po nasazení (1–2 minuty) se může přihlásit celý tým.
         </p>
         <button className="btn-primary mt-6 w-full" onClick={() => auth.start(manual, token.trim())}>Pokračovat do aplikace</button>
