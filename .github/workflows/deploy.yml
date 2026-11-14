@@ -29,10 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          # Soukromý repozitář s daty CRM. Jiný název nastavíte repo proměnnou CRM_DATA_REPO.
           VITE_APP_REPO: ${{ github.repository }}
           VITE_APP_BRANCH: ${{ github.ref_name }}
-          VITE_DATA_REPO: ${{ vars.CRM_DATA_REPO || format('{0}/projectwo-crm-data', github.repository_owner) }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CircleCheck, ExternalLink, KeyRound, LoaderCircle, Lock, Plus, Trash2, User, UserPlus, X } from 'lucide-react';
-import { MIN_PASSWORD, sealToken, userId } from '../auth';
-import { APP_BRANCH, APP_REPO, DATA_REPO, saveUsers, verifyAccess } from '../store';
+import { MIN_PASSWORD, newDataKey, sealToken, userId } from '../auth';
+import { APP_BRANCH, APP_REPO, initData, saveUsers, verifyAccess } from '../store';
 import { Shell } from './Modals';
 import { LogoMark } from './ui';
 
@@ -105,12 +105,16 @@ function Setup({ auth }) {
     setBusy(true);
     setError('');
     try {
-      await verifyAccess(token.trim());
-      const sealed = await Promise.all(filled.map((r) => sealToken(r.name, r.password, token.trim())));
-      const { users, committed } = await saveUsers(token.trim(), () => sealed);
+      const t = token.trim();
+      const k = newDataKey();
+      await verifyAccess(t);
+      await initData(t, k);
+      const secret = JSON.stringify({ t, k });
+      const sealed = await Promise.all(filled.map((r) => sealToken(r.name, r.password, secret)));
+      const { users, committed } = await saveUsers(t, () => sealed);
       auth.setUsers(users);
-      if (committed) auth.start(filled[0].name, token.trim());
-      else setManual(filled[0].name);
+      if (committed) auth.start(filled[0].name, t, k);
+      else setManual({ name: filled[0].name, t, k });
     } catch (err) {
       setError(err.message);
     }
@@ -128,7 +132,7 @@ function Setup({ auth }) {
           <b className="font-medium text-zinc-200">{APP_REPO || 's aplikací'}</b> do složky <b className="font-medium text-zinc-200">public/</b> na větvi <b className="font-medium text-zinc-200">{APP_BRANCH}</b>.
           Po nasazení (1–2 minuty) se může přihlásit celý tým.
         </p>
-        <button className="btn-primary mt-6 w-full" onClick={() => auth.start(manual, token.trim())}>Pokračovat do aplikace</button>
+        <button className="btn-primary mt-6 w-full" onClick={() => auth.start(manual.name, manual.t, manual.k)}>Pokračovat do aplikace</button>
       </Frame>
     );
   }
@@ -142,11 +146,11 @@ function Setup({ auth }) {
 
       <form onSubmit={submit} className="mt-6 space-y-5">
         <div>
-          <label className="label" htmlFor="s-token">1 · Přístupový klíč k datům (GitHub token)</label>
+          <label className="label" htmlFor="s-token">1 · GitHub token</label>
           <input id="s-token" type="password" className="field font-mono" required autoComplete="off" spellCheck={false} placeholder="github_pat_…" value={token} onChange={(e) => setToken(e.target.value)} />
           <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
-            Fine-grained token s právem <b className="font-medium text-zinc-300">Contents: Read and write</b> pro repozitáře{' '}
-            <b className="font-medium text-zinc-300">{DATA_REPO}</b>{APP_REPO && <> a <b className="font-medium text-zinc-300">{APP_REPO}</b></>}. V aplikaci se uloží jen zašifrovaně.{' '}
+            Fine-grained token pro repozitář <b className="font-medium text-zinc-300">{APP_REPO}</b> s právem{' '}
+            <b className="font-medium text-zinc-300">Contents: Read and write</b>. V aplikaci se uloží jen zašifrovaně.{' '}
             <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-sky-400 hover:text-sky-300">
               Vytvořit <ExternalLink size={11} />
             </a>
@@ -207,7 +211,7 @@ export function AccountsModal({ session, auth, onClose, notify }) {
     e.preventDefault();
     const problem = validateAccounts([f]);
     if (problem) return setError(problem);
-    const entry = await sealToken(f.name, f.password, session.token);
+    const entry = await sealToken(f.name, f.password, JSON.stringify({ t: session.token, k: session.key }));
     const exists = auth.users.some((u) => userId(u.name) === userId(f.name));
     return apply(
       (users) => [...users.filter((u) => userId(u.name) !== userId(f.name)), entry],

@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SEED_CLIENTS, TEAM } from './data';
 import { today } from './lib';
-import { openToken, userId } from './auth';
+import { decryptData, encryptData, openToken, userId } from './auth';
 
-/* Týmový režim: data žijí v souboru crm.json v soukromém GitHub repozitáři.
-   Členové se hlásí jménem a heslem; heslo odemkne zašifrovaný přístupový klíč z users.json. */
-export const DATA_REPO = import.meta.env.VITE_DATA_REPO || '';
+/* Týmový režim: data žijí zašifrovaná v souboru crm.json na samostatné větvi tohoto repozitáře.
+   Členové se hlásí jménem a heslem; heslo odemkne token a datový klíč z users.json. */
 export const APP_REPO = import.meta.env.VITE_APP_REPO || '';
 // Větev, ze které se web nasazuje — sem se ukládá seznam účtů.
 export const APP_BRANCH = import.meta.env.VITE_APP_BRANCH || 'main';
-export const remote = Boolean(DATA_REPO);
+export const DATA_BRANCH = 'crm-data';
+export const remote = Boolean(APP_REPO);
 
 const API = 'https://api.github.com';
 const FILE = 'crm.json';
@@ -40,19 +40,48 @@ const encode = (text) => {
 };
 const decode = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (ch) => ch.charCodeAt(0)));
 
-/* Ověří, že klíč smí zapisovat do soukromého datového repozitáře. */
-export async function verifyAccess(token) {
+const repoName = APP_REPO.split('/')[1] || APP_REPO;
+const NO_WRITE = `Token nemá právo zápisu do repozitáře ${repoName}. V nastavení tokenu na GitHubu zvolte „Repository access → Only select repositories → ${repoName}“ a „Permissions → Repository permissions → Contents → Read and write“. Pak token vygenerujte znovu a vložte sem.`;
+
+async function call(token, path, opts) {
   let res;
   try {
-    res = await gh(token, `/repos/${DATA_REPO}`);
+    res = await gh(token, path, opts);
   } catch {
     throw new Error('Nepodařilo se spojit s GitHubem. Zkontrolujte připojení.');
   }
-  if (res.status === 401) throw new Error('Přístupový klíč není platný nebo už vypršel. Je potřeba znovu projít nastavení.');
-  if (!res.ok) throw new Error(`Klíč nemá přístup k repozitáři ${DATA_REPO}.`);
-  const repo = await res.json();
-  if (!repo.private) throw new Error(`Repozitář ${DATA_REPO} je veřejný. Data klientů se ukládají jen do soukromého repozitáře.`);
-  if (!repo.permissions?.push) throw new Error(`Klíč nemá v repozitáři ${DATA_REPO} právo zápisu.`);
+  if (res.status === 401) throw new Error('Token není platný nebo už vypršel. Zkopírujte ho z GitHubu znovu celý (začíná github_pat_ nebo ghp_).');
+  return res;
+}
+
+/* Ověří, že token platí a repozitář vidí. */
+export async function verifyAccess(token) {
+  const res = await call(token, `/repos/${APP_REPO}`);
+  if (!res.ok) throw new Error(NO_WRITE);
+}
+
+const dataPath = `/repos/${APP_REPO}/contents/${FILE}`;
+
+/* Založí (nebo přepíše) zašifrovaný datový soubor. Zároveň ověří, že token smí zapisovat. */
+export async function initData(token, key) {
+  const text = await encryptData(key, JSON.stringify({ team: [AI_AGENT], clients: [] }));
+  const existing = await call(token, `${dataPath}?ref=${DATA_BRANCH}`);
+  if (existing.ok) {
+    const { sha } = await existing.json();
+    const res = await call(token, dataPath, { method: 'PUT', body: JSON.stringify({ message: 'CRM: nové nastavení', content: encode(text), branch: DATA_BRANCH, sha }) });
+    if (!res.ok) throw new Error(NO_WRITE);
+    return;
+  }
+  // Samostatná větev bez historie kódu: strom → commit → větev.
+  const post = async (path, body) => {
+    const res = await call(token, `/repos/${APP_REPO}/git/${path}`, { method: 'POST', body: JSON.stringify(body) });
+    if (res.status === 422 && path === 'refs') return {}; // větev už existuje, soubor doplní první uložení
+    if (!res.ok) throw new Error(NO_WRITE);
+    return res.json();
+  };
+  const tree = await post('trees', { tree: [{ path: FILE, mode: '100644', type: 'blob', content: text }] });
+  const commit = await post('commits', { message: 'CRM: založení dat', tree: tree.sha, parents: [] });
+  await post('refs', { ref: `refs/heads/${DATA_BRANCH}`, sha: commit.sha });
 }
 
 /* Seznam účtů (jména + zašifrované klíče) — veřejný soubor nasazený spolu s aplikací. */
@@ -114,7 +143,7 @@ export function useSession() {
       setUsers(await fetchUsers());
       try {
         const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
-        if (saved?.token && saved?.user?.id) {
+        if (saved?.token && saved?.key && saved?.user?.id) {
           await verifyAccess(saved.token);
           setSession(saved);
         }
@@ -125,8 +154,8 @@ export function useSession() {
     })();
   }, []);
 
-  const start = useCallback((name, token) => {
-    const s = { token, user: { id: userId(name), name: name.trim() } };
+  const start = useCallback((name, token, key) => {
+    const s = { token, key, user: { id: userId(name), name: name.trim() } };
     try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* přihlášení jen pro tuto návštěvu */ }
     setSession(s);
   }, []);
@@ -134,14 +163,14 @@ export function useSession() {
   const signIn = useCallback(async (name, password) => {
     const entry = users.find((u) => userId(u.name) === userId(name));
     if (!entry) throw new Error(BAD_LOGIN);
-    let token;
+    let secret;
     try {
-      token = await openToken(entry, password);
+      secret = JSON.parse(await openToken(entry, password));
     } catch {
       throw new Error(BAD_LOGIN);
     }
-    await verifyAccess(token);
-    start(entry.name, token);
+    await verifyAccess(secret.t);
+    start(entry.name, secret.t, secret.k);
   }, [users, start]);
 
   const signOut = useCallback(() => {
@@ -189,6 +218,7 @@ export function useCrm(session, onError) {
   const fail = useRef(onError);
   fail.current = onError;
   const token = session?.token;
+  const key = session?.key;
   const me = session?.user;
 
   const render = useCallback(() => {
@@ -206,7 +236,7 @@ export function useCrm(session, onError) {
     const headers = !force && etag.current ? { 'If-None-Match': etag.current } : {};
     let res;
     try {
-      res = await gh(token, `/repos/${DATA_REPO}/contents/${FILE}`, { headers });
+      res = await gh(token, `${dataPath}?ref=${DATA_BRANCH}`, { headers });
     } catch {
       setStatus('offline — zkouším znovu');
       return false;
@@ -224,7 +254,7 @@ export function useCrm(session, onError) {
     }
     try {
       const file = await res.json();
-      const parsed = JSON.parse(decode(file.content));
+      const parsed = JSON.parse(await decryptData(key, decode(file.content)));
       base.current = {
         team: Array.isArray(parsed.team) && parsed.team.length ? parsed.team : [AI_AGENT],
         clients: Array.isArray(parsed.clients) ? parsed.clients : [],
@@ -233,10 +263,10 @@ export function useCrm(session, onError) {
       etag.current = res.headers.get('etag');
       return true;
     } catch {
-      setStatus('soubor crm.json je poškozený');
+      setStatus('data se nepodařilo rozšifrovat');
       return false;
     }
-  }, [token]);
+  }, [token, key]);
 
   const save = useCallback(async () => {
     if (saving.current || !ops.current.length) return;
@@ -248,11 +278,13 @@ export function useCrm(session, onError) {
       const next = applyOps(base.current, batch);
       let res;
       try {
-        res = await gh(token, `/repos/${DATA_REPO}/contents/${FILE}`, {
+        const content = encode(await encryptData(key, JSON.stringify(next)));
+        res = await gh(token, dataPath, {
           method: 'PUT',
           body: JSON.stringify({
             message: `CRM: ${me.id} (${batch.length} ${batch.length === 1 ? 'změna' : 'změny'})`,
-            content: encode(JSON.stringify(next, null, 2)),
+            content,
+            branch: DATA_BRANCH,
             ...(sha.current ? { sha: sha.current } : {}),
           }),
         });
@@ -285,7 +317,7 @@ export function useCrm(session, onError) {
     } else {
       setStatus('uloženo');
     }
-  }, [token, me, pull, render]);
+  }, [token, key, me, pull, render]);
 
   const push = useCallback((op) => {
     const last = ops.current[ops.current.length - 1];

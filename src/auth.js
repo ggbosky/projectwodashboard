@@ -1,9 +1,15 @@
 /* Přihlášení jménem a heslem bez serveru.
-   Přístupový klíč k datům (GitHub token) je v souboru users.json uložený zašifrovaně — pro každého
-   člena zvlášť, jeho vlastním heslem (PBKDF2 + AES-GCM). Správné heslo klíč odemkne, špatné ne. */
+   V users.json je pro každého člena zašifrované „tajemství“ (GitHub token + klíč k datům),
+   zamčené jeho vlastním heslem (PBKDF2 + AES-GCM). Správné heslo ho odemkne, špatné ne.
+   Samotná data CRM jsou zašifrovaná společným datovým klíčem, takže mohou ležet i ve veřejném repozitáři. */
 const ITERATIONS = 600000;
 
-const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const b64 = (buf) => {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
 const unb64 = (s) => Uint8Array.from(atob(s), (ch) => ch.charCodeAt(0));
 
 export const userId = (name) =>
@@ -35,3 +41,20 @@ export async function openToken(entry, password) {
 }
 
 export const MIN_PASSWORD = 10;
+
+/* Společný klíč, kterým se šifrují data CRM. */
+export const newDataKey = () => b64(crypto.getRandomValues(new Uint8Array(32)));
+
+const dataKey = (key) => crypto.subtle.importKey('raw', unb64(key), 'AES-GCM', false, ['encrypt', 'decrypt']);
+
+export async function encryptData(key, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await dataKey(key), new TextEncoder().encode(text));
+  return JSON.stringify({ v: 1, iv: b64(iv), data: b64(data) });
+}
+
+export async function decryptData(key, text) {
+  const { iv, data } = JSON.parse(text);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await dataKey(key), unb64(data));
+  return new TextDecoder().decode(plain);
+}
