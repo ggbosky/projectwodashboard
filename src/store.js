@@ -54,10 +54,21 @@ async function call(token, path, opts) {
   return res;
 }
 
+/* Odmítnutý požadavek převede na chybu s návodem a přesnou odpovědí GitHubu. */
+async function need(res, step, token) {
+  if (res.ok) return res;
+  let detail = '';
+  try { detail = (await res.json()).message || ''; } catch { /* bez těla */ }
+  const classic = !token.startsWith('github_pat_');
+  const hint = classic
+    ? `Token nemá právo zápisu do repozitáře ${repoName}. U klasického tokenu (ghp_…) zaškrtněte oprávnění „repo“ nebo „public_repo“ a vložte ho znovu.`
+    : NO_WRITE;
+  throw new Error(`${hint} [krok: ${step} · GitHub ${res.status}${detail ? ` · ${detail}` : ''}]`);
+}
+
 /* Ověří, že token platí a repozitář vidí. */
 export async function verifyAccess(token) {
-  const res = await call(token, `/repos/${APP_REPO}`);
-  if (!res.ok) throw new Error(NO_WRITE);
+  await need(await call(token, `/repos/${APP_REPO}`), 'čtení repozitáře', token);
 }
 
 const dataPath = `/repos/${APP_REPO}/contents/${FILE}`;
@@ -69,15 +80,14 @@ export async function initData(token, key) {
   if (existing.ok) {
     const { sha } = await existing.json();
     const res = await call(token, dataPath, { method: 'PUT', body: JSON.stringify({ message: 'CRM: nové nastavení', content: encode(text), branch: DATA_BRANCH, sha }) });
-    if (!res.ok) throw new Error(NO_WRITE);
+    await need(res, 'přepis dat', token);
     return;
   }
   // Samostatná větev bez historie kódu: strom → commit → větev.
   const post = async (path, body) => {
     const res = await call(token, `/repos/${APP_REPO}/git/${path}`, { method: 'POST', body: JSON.stringify(body) });
     if (res.status === 422 && path === 'refs') return {}; // větev už existuje, soubor doplní první uložení
-    if (!res.ok) throw new Error(NO_WRITE);
-    return res.json();
+    return (await need(res, `git/${path}`, token)).json();
   };
   const tree = await post('trees', { tree: [{ path: FILE, mode: '100644', type: 'blob', content: text }] });
   const commit = await post('commits', { message: 'CRM: založení dat', tree: tree.sha, parents: [] });
