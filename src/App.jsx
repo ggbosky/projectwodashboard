@@ -4,7 +4,6 @@ import { Columns3, Globe, List, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, S
 import { RATES } from './data';
 import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
 import { remote, useCrm, useSession } from './store';
-import { supabase } from './supabase';
 import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
 import { Kanban, ListView } from './components/Pipeline';
@@ -29,13 +28,13 @@ function Splash() {
 }
 
 export default function App() {
-  const { session, ready } = useSession();
+  const { session, ready, signIn, signOut } = useSession();
   if (!ready) return <Splash />;
-  if (remote && !session) return <Auth />;
-  return <Crm key={session?.user?.id || 'local'} session={session} />;
+  if (remote && !session) return <Auth signIn={signIn} />;
+  return <Crm key={session?.user?.id || 'local'} session={session} signOut={signOut} />;
 }
 
-function Crm({ session }) {
+function Crm({ session, signOut }) {
   const prefs = useMemo(loadPrefs, []);
   const uid = session?.user?.id;
   const [me, setMe] = useState(remote ? uid : prefs.me ?? 'marek');
@@ -224,7 +223,7 @@ function Crm({ session }) {
               <span className="hidden items-center gap-1 border-l border-black/20 pl-2 text-black/70 sm:flex"><LinkedInGlyph size={13} /> Import</span>
             </motion.button>
             {remote && (
-              <button className="btn-ghost !p-2" onClick={() => supabase.auth.signOut()} title={`Odhlásit (${session.user.email})`} aria-label="Odhlásit se">
+              <button className="btn-ghost !p-2" onClick={signOut} title={`Odhlásit (@${session.user.id})`} aria-label="Odhlásit se">
                 <LogOut size={16} />
               </button>
             )}
@@ -331,7 +330,7 @@ function Crm({ session }) {
 
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5 text-xs text-zinc-600">
           <span className="num">
-            {remote ? 'Sdílená databáze týmu · změny se synchronizují živě' : 'Demo režim · ukládá se lokálně v prohlížeči'} · kurzy pro přepočet: 1 EUR = {String(RATES.EUR).replace('.', ',')} Kč, 1 USD = {String(RATES.USD).replace('.', ',')} Kč
+            {remote ? `Sdílená data týmu v GitHubu · ${store.status}` : 'Demo režim · ukládá se lokálně v prohlížeči'} · kurzy pro přepočet: 1 EUR = {String(RATES.EUR).replace('.', ',')} Kč, 1 USD = {String(RATES.USD).replace('.', ',')} Kč
           </span>
           {!remote && (
             <button

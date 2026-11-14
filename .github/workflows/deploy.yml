@@ -29,8 +29,8 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Soukromý repozitář s daty CRM. Jiný název nastavíte repo proměnnou CRM_DATA_REPO.
+          VITE_DATA_REPO: ${{ vars.CRM_DATA_REPO || format('{0}/projectwo-crm-data', github.repository_owner) }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

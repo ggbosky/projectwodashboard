@@ -1,22 +1,32 @@
 # Project Two — CRM
 
-Interní týmové CRM studia Project Two: dashboard s finančními metrikami, LinkedIn sales pipeline (Kanban / seznam) a ochrana proti duplicitnímu oslovení klientů. Tým sdílí jednu databázi, přihlašuje se e-mailem a heslem a změny se synchronizují živě.
+Interní týmové CRM studia Project Two: dashboard s finančními metrikami, LinkedIn sales pipeline (Kanban / seznam) a ochrana proti duplicitnímu oslovení klientů.
 
-React 18 · Vite · Tailwind CSS · Framer Motion · Supabase · GitHub Pages
+Vše běží jen na GitHubu — žádná další služba. Web hostuje GitHub Pages, data jsou v souboru `crm.json` v soukromém repozitáři a přihlašuje se GitHub tokenem.
+
+React 18 · Vite · Tailwind CSS · Framer Motion · GitHub Pages + GitHub API
 
 ## Dva režimy
 
 - **Demo** — bez nastavení. Ukázková data, uložená jen v prohlížeči, bez přihlášení.
-- **Týmový** — jakmile jsou nastavené proměnné `VITE_SUPABASE_URL` a `VITE_SUPABASE_ANON_KEY`. Přihlášení, sdílená databáze, živá synchronizace.
+- **Týmový** — nasazená verze. Přihlášení, sdílená data, synchronizace každých 20 s.
 
 ## Zprovoznění pro tým
 
-1. **Supabase** — na [supabase.com](https://supabase.com) založte projekt (stačí Free).
-2. **Databáze** — otevřete `supabase/schema.sql`, nahoře přepište tři e-maily na své a celý soubor spusťte v *SQL Editoru*. Dovnitř se dostanou jen tyto e-maily.
-3. **Adresa webu** — v *Authentication → URL Configuration* nastavte *Site URL* na adresu aplikace (např. `https://ggbosky.github.io/projectwodashboard/`). Potvrzování e-mailu nechte zapnuté.
-4. **Klíče** — z *Project Settings → API* zkopírujte *Project URL* a *anon public key*. V GitHubu je uložte v *Settings → Secrets and variables → Actions → Variables* jako `VITE_SUPABASE_URL` a `VITE_SUPABASE_ANON_KEY`. (Anon klíč je veřejný záměrně — data chrání pravidla v databázi. Klíč `service_role` nikam nedávejte.)
-5. **GitHub Pages** — v *Settings → Pages* zvolte *Source: GitHub Actions*. Po sloučení do větve `main` se web sám nasadí.
-6. **Účty** — každý člen si na webu vytvoří účet přes „Nový účet“ a potvrdí e-mail.
+1. **Datový repozitář** — na GitHubu založte **soukromý** repozitář `projectwo-crm-data` (může zůstat prázdný). Tento repozitář s kódem je veřejný, proto data klientů musí být jinde. Aplikace veřejný datový repozitář odmítne.
+2. **Kolegové** — v datovém repozitáři v *Settings → Collaborators* pozvěte oba kolegy. Kdo nemá přístup, dovnitř se nedostane.
+3. **GitHub Pages** — v tomto repozitáři v *Settings → Pages* zvolte *Source: GitHub Actions*. Po sloučení do větve `main` se web sám nasadí na `https://ggbosky.github.io/projectwodashboard/`.
+4. **Tokeny** — každý člen si na [github.com/settings/tokens](https://github.com/settings/tokens) vytvoří vlastní token a přihlásí se jím:
+   - vlastník datového repozitáře: *Fine-grained token* → jen repozitář `projectwo-crm-data` → *Contents: Read and write*;
+   - pozvaní kolegové: *Token (classic)* s oprávněním `repo` (fine-grained tokeny k cizím osobním repozitářům nefungují).
+
+Jiný název datového repozitáře nastavíte proměnnou `CRM_DATA_REPO` (*Settings → Secrets and variables → Actions → Variables*, tvar `vlastnik/nazev`).
+
+## Jak ukládání funguje
+
+- Každé uložení je commit do `crm.json`, takže historie změn i záloha jsou v Gitu zadarmo.
+- Když dva lidé uloží současně, aplikace načte verzi kolegy a vlastní změny přehraje nad ní — nic se nepřepíše.
+- Člen týmu se do aplikace zapíše sám při prvním přihlášení; jméno a barvu lze upravit ručně v `crm.json`.
 
 ## Lokální vývoj
 
@@ -25,11 +35,10 @@ npm install
 npm run dev
 ```
 
-Pro týmový režim lokálně zkopírujte `.env.example` jako `.env.local` a doplňte klíče.
+Pro týmový režim lokálně zkopírujte `.env.example` jako `.env.local`.
 
 ## Kde co je
 
 - `src/data.js` — fáze, balíčky, kurzy a demo data
-- `src/store.js` — načítání, ukládání a synchronizace dat
-- `supabase/schema.sql` — tabulky, přístupová pravidla, seznam povolených e-mailů
+- `src/store.js` — přihlášení, načítání, ukládání a synchronizace přes GitHub API
 - `src/components/ui.jsx` — logo (`LogoMark`); originál je v `public/logo-mark.png`
