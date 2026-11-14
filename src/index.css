@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { color-scheme: dark; }
+  body {
+    @apply bg-ink-950 font-sans text-[#FAFAFA] antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection { background: rgba(255, 90, 15, 0.35); }
+  input, textarea, select, button { font: inherit; }
+  :focus-visible { outline: 2px solid #FF5A0F; outline-offset: 2px; border-radius: 6px; }
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl;
+  }
+  .field {
+    @apply w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-zinc-500 transition
+      focus:border-brand/60 focus:bg-white/[0.06] focus:outline-none;
+  }
+  .label { @apply mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium transition active:scale-[0.97];
+  }
+  .btn-primary { @apply btn bg-brand text-black shadow-[0_0_24px_-6px_rgba(255,90,15,0.7)] hover:bg-brand-soft; }
+  .btn-ghost { @apply btn border border-white/[0.08] bg-white/[0.03] text-zinc-200 hover:bg-white/[0.08]; }
+  .num { font-variant-numeric: tabular-nums; }
+}
+
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.14) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
