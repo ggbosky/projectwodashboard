@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CircleCheck, ShieldAlert, ShieldCheck, X } from 'lucide-react';
-import { PACKAGES, STAGES, TEAM } from '../data';
-import { findDuplicates, memberOf } from '../lib';
+import { PACKAGES, STAGES } from '../data';
+import { getTeam, findDuplicates, memberOf } from '../lib';
 import { Avatar, LinkedInGlyph, Segmented, StagePill } from './ui';
 
 function Shell({ children, onClose, label, wide }) {
@@ -194,7 +194,7 @@ export function NewClientModal({ clients, me, onClose, onSubmit }) {
 
         <span className="label mt-4">Od koho klient je</span>
         <div className="flex flex-wrap gap-2">
-          {[...TEAM, null].map((m) => {
+          {[...getTeam(), null].map((m) => {
             const id = m?.id ?? null;
             const active = f.owner === id;
             const color = m?.color || '#A1A1AA';

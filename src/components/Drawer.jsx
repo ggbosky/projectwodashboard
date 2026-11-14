@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink, Send, Trash2, X } from 'lucide-react';
-import { PACKAGES, STAGES, TEAM } from '../data';
-import { fromCZK, memberOf, money, shortDate, today, toCZK } from '../lib';
+import { PACKAGES, STAGES } from '../data';
+import { getTeam, fromCZK, memberOf, money, shortDate, today, toCZK } from '../lib';
 import { Avatar, LinkedInGlyph, RegionPill, Segmented } from './ui';
 
 const OTHER = { CZK: ['EUR', 'USD'], EUR: ['CZK', 'USD'], USD: ['CZK', 'EUR'] };
@@ -159,7 +159,7 @@ export default function Drawer({ client, onUpdate, onStage, onAssign, onDelete, 
 
         <Section title="Od koho klient je">
           <div className="flex flex-wrap gap-2">
-            {[...TEAM, null].map((m) => {
+            {[...getTeam(), null].map((m) => {
               const id = m?.id ?? null;
               const active = client.owner === id;
               const color = m?.color || '#A1A1AA';

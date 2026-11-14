@@ -1,4 +1,9 @@
-import { RATES, STAGES, TEAM, PACKAGES } from './data';
+import { RATES, STAGES, PACKAGES } from './data';
+
+// Tým je dynamický (v ostrém režimu se načítá z databáze), proto ho držíme v registru.
+let team = [];
+export const setTeam = (t) => { team = t; };
+export const getTeam = () => team;
 
 export const toCZK = (c) => (Number(c.value) || 0) * RATES[c.currency];
 export const fromCZK = (czk, currency) => czk / RATES[currency];
@@ -10,7 +15,7 @@ export function money(amount, currency) {
 }
 
 export const stageOf = (id) => STAGES.find((s) => s.id === id);
-export const memberOf = (id) => TEAM.find((m) => m.id === id) || null;
+export const memberOf = (id) => team.find((m) => m.id === id) || null;
 export const pkgOf = (id) => PACKAGES.find((p) => p.id === id);
 
 export const shortDate = (iso) => new Date(iso).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' });

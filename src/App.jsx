@@ -1,29 +1,45 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Columns3, Globe, List, MapPin, Plus, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
-import { RATES, SEED_CLIENTS, STAGES, TEAM } from './data';
-import { memberOf, norm, stageOf, today } from './lib';
-import { Avatar, LinkedInGlyph, Logo, Segmented } from './components/ui';
+import { Columns3, Globe, List, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, X } from 'lucide-react';
+import { RATES } from './data';
+import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
+import { remote, useCrm, useSession } from './store';
+import { supabase } from './supabase';
+import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
 import { Kanban, ListView } from './components/Pipeline';
 import Drawer from './components/Drawer';
+import Auth from './components/Auth';
 import { CollisionModal, NewClientModal, Toast } from './components/Modals';
 
-const STORE = 'projectwo-crm.v1';
+const PREFS = 'projectwo-crm.prefs';
+const loadPrefs = () => {
+  try { return JSON.parse(localStorage.getItem(PREFS)) || {}; } catch { return {}; }
+};
 
-function load() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE));
-    if (saved && Array.isArray(saved.clients)) return saved;
-  } catch { /* poškozená nebo nedostupná data — použijeme demo */ }
-  return null;
+function Splash() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-zinc-500">
+      <motion.div animate={{ scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }} transition={{ repeat: Infinity, duration: 1.6 }}>
+        <LogoMark className="h-12 w-auto" />
+      </motion.div>
+      <span className="flex items-center gap-2 text-sm"><LoaderCircle size={14} className="animate-spin" /> Načítám pipeline…</span>
+    </div>
+  );
 }
 
 export default function App() {
-  const saved = useMemo(load, []);
-  const [clients, setClients] = useState(saved?.clients ?? SEED_CLIENTS);
-  const [me, setMe] = useState(saved?.me ?? 'marek');
-  const [currency, setCurrency] = useState(saved?.currency ?? 'CZK');
+  const { session, ready } = useSession();
+  if (!ready) return <Splash />;
+  if (remote && !session) return <Auth />;
+  return <Crm key={session?.user?.id || 'local'} session={session} />;
+}
+
+function Crm({ session }) {
+  const prefs = useMemo(loadPrefs, []);
+  const uid = session?.user?.id;
+  const [me, setMe] = useState(remote ? uid : prefs.me ?? 'marek');
+  const [currency, setCurrency] = useState(prefs.currency ?? 'CZK');
   const [region, setRegion] = useState('ALL');
   const [view, setView] = useState('kanban');
   const [ownerFilter, setOwnerFilter] = useState(null);
@@ -35,19 +51,23 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const toastTimer = useRef();
 
-  useEffect(() => {
-    try { localStorage.setItem(STORE, JSON.stringify({ clients, me, currency })); } catch { /* bez persistence */ }
-  }, [clients, me, currency]);
-
   const notify = useCallback((text, warn = false) => {
     clearTimeout(toastTimer.current);
     setToast({ text, warn, key: Date.now() });
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }, []);
 
-  const patch = useCallback((id, p) => {
-    setClients((cs) => cs.map((c) => (c.id === id ? { ...c, ...p, updated: today() } : c)));
-  }, []);
+  const store = useCrm(session, (text) => notify(text, true));
+  const { clients, patch } = store;
+  setTeam(store.team); // registr pro memberOf() v celé aplikaci
+  const team = getTeam();
+  // V ostrém režimu vystupuje každý za sebe; přepnout se lze jen na AI agenta bez vlastního účtu.
+  const actAs = remote ? team.filter((m) => m.id === uid || m.ai) : team;
+  const meName = memberOf(me)?.name ?? 'Vy';
+
+  useEffect(() => {
+    try { localStorage.setItem(PREFS, JSON.stringify(remote ? { currency } : { currency, me })); } catch { /* bez persistence */ }
+  }, [me, currency]);
 
   /* ——— Anti-duplicita: každá změna fáze / vlastníka u cizího klienta projde přes varování ——— */
   const guard = (client, action, apply) => {
@@ -56,7 +76,7 @@ export default function App() {
     setCollision({
       client,
       title: `Tohoto klienta už řeší ${owner.name}`,
-      body: `${memberOf(me).name} se pokouší ${action}, ale klient je v databázi zabraný. Aby ho neoslovili dva lidé z Project Two, domluvte se nejdřív s kolegou.`,
+      body: `${meName} se pokouší ${action}, ale klient je v databázi zabraný. Aby ho neoslovili dva lidé z Project Two, domluvte se nejdřív s kolegou.`,
       primary: { label: `Ponechat u: ${owner.name}`, run: () => setCollision(null) },
       secondary: { label: 'Jsme domluveni — přesto provést', run: () => { apply(); setCollision(null); } },
     });
@@ -68,7 +88,7 @@ export default function App() {
     guard(c, `přesunout klienta do fáze „${stageOf(stage).name}“`, () => {
       const claim = !c.owner && stage !== 'lead';
       patch(id, { stage, ...(claim ? { owner: me } : {}) });
-      notify(claim ? `${c.name} → ${stageOf(stage).short} · přiřazeno: ${memberOf(me).name}` : `${c.name} → ${stageOf(stage).short}`);
+      notify(claim ? `${c.name} → ${stageOf(stage).short} · přiřazeno: ${meName}` : `${c.name} → ${stageOf(stage).short}`);
     });
   };
 
@@ -85,7 +105,7 @@ export default function App() {
   const createClient = (f, dupes) => {
     const create = () => {
       const client = {
-        id: `c${Date.now()}`,
+        id: crypto.randomUUID(),
         name: f.name.trim(),
         title: f.title.trim() || 'Kontakt',
         company: f.company.trim(),
@@ -102,7 +122,7 @@ export default function App() {
         notes: '',
         linkedin: f.linkedin.trim().replace(/^https?:\/\//, '') || 'linkedin.com',
       };
-      setClients((cs) => [client, ...cs]);
+      store.add(client);
       setAdding(false);
       setCollision(null);
       notify(`${client.name} přidán do pipeline`);
@@ -126,7 +146,7 @@ export default function App() {
     const c = clients.find((x) => x.id === id);
     if (!window.confirm(`Opravdu smazat klienta ${c.name}?`)) return;
     setOpenId(null);
-    setClients((cs) => cs.filter((x) => x.id !== id));
+    store.remove(id);
     notify(`${c.name} smazán`, true);
   };
 
@@ -141,6 +161,8 @@ export default function App() {
   const taken = clients.filter((c) => c.owner).length;
   const free = clients.length - taken;
   const open = clients.find((c) => c.id === openId);
+
+  if (store.loading) return <Splash />;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
@@ -183,7 +205,7 @@ export default function App() {
             />
             <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1" role="radiogroup" aria-label="Pracuji jako">
               <span className="hidden pl-2 pr-1 text-[11px] text-zinc-500 lg:inline">Pracuji jako</span>
-              {TEAM.map((m) => (
+              {actAs.map((m) => (
                 <button
                   key={m.id}
                   role="radio"
@@ -201,6 +223,11 @@ export default function App() {
               <Plus size={16} /> Nový klient
               <span className="hidden items-center gap-1 border-l border-black/20 pl-2 text-black/70 sm:flex"><LinkedInGlyph size={13} /> Import</span>
             </motion.button>
+            {remote && (
+              <button className="btn-ghost !p-2" onClick={() => supabase.auth.signOut()} title={`Odhlásit (${session.user.email})`} aria-label="Odhlásit se">
+                <LogOut size={16} />
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -304,16 +331,18 @@ export default function App() {
 
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-5 text-xs text-zinc-600">
           <span className="num">
-            Demo data · ukládá se lokálně v prohlížeči · kurzy pro přepočet: 1 EUR = {String(RATES.EUR).replace('.', ',')} Kč, 1 USD = {String(RATES.USD).replace('.', ',')} Kč
+            {remote ? 'Sdílená databáze týmu · změny se synchronizují živě' : 'Demo režim · ukládá se lokálně v prohlížeči'} · kurzy pro přepočet: 1 EUR = {String(RATES.EUR).replace('.', ',')} Kč, 1 USD = {String(RATES.USD).replace('.', ',')} Kč
           </span>
-          <button
-            onClick={() => {
-              if (window.confirm('Obnovit původní demo data? Vaše změny se zahodí.')) { setClients(SEED_CLIENTS); notify('Demo data obnovena'); }
-            }}
-            className="inline-flex items-center gap-1.5 transition hover:text-zinc-300"
-          >
-            <RotateCcw size={12} /> Obnovit demo data
-          </button>
+          {!remote && (
+            <button
+              onClick={() => {
+                if (window.confirm('Obnovit původní demo data? Vaše změny se zahodí.')) { store.resetDemo(); notify('Demo data obnovena'); }
+              }}
+              className="inline-flex items-center gap-1.5 transition hover:text-zinc-300"
+            >
+              <RotateCcw size={12} /> Obnovit demo data
+            </button>
+          )}
         </footer>
       </main>
 

@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Banknote, CalendarClock, CircleCheckBig, Gauge, TrendingUp, Users } from 'lucide-react';
-import { PACKAGES, STAGES, TEAM } from '../data';
-import { fromCZK, money, stats, toCZK } from '../lib';
+import { PACKAGES, STAGES } from '../data';
+import { getTeam, fromCZK, money, stats, toCZK } from '../lib';
 import { Avatar, Counter } from './ui';
 
 const OTHER = { CZK: ['EUR', 'USD'], EUR: ['CZK', 'USD'], USD: ['CZK', 'EUR'] };
@@ -86,11 +86,11 @@ export function Kpis({ clients, currency }) {
 }
 
 export function TeamCards({ clients, currency, ownerFilter, onOwnerFilter }) {
-  const max = Math.max(1, ...TEAM.map((m) => clients.filter((c) => c.owner === m.id && c.stage === 'won').reduce((s, c) => s + toCZK(c), 0)));
+  const max = Math.max(1, ...getTeam().map((m) => clients.filter((c) => c.owner === m.id && c.stage === 'won').reduce((s, c) => s + toCZK(c), 0)));
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      {TEAM.map((m, i) => {
+    <div className={`grid grid-cols-1 gap-4 ${getTeam().length >= 4 ? 'md:grid-cols-2 2xl:grid-cols-4' : 'md:grid-cols-3'}`}>
+      {getTeam().map((m, i) => {
         const mine = clients.filter((c) => c.owner === m.id);
         const revenue = mine.filter((c) => c.stage === 'won').reduce((s, c) => s + toCZK(c), 0);
         const meetings = mine.filter((c) => c.stage === 'meeting').length;

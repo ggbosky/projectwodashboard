@@ -113,7 +113,7 @@ export function Kanban({ clients, currency, onOpen, onMove }) {
                 </div>
               </div>
               <div className="flex flex-1 flex-col gap-2.5">
-                <AnimatePresence mode="popLayout" initial={false}>
+                <AnimatePresence initial={false}>
                   {items.map((c) => (
                     <ClientCard
                       key={c.id}
