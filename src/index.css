@@ -19,7 +19,7 @@
     @apply rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl;
   }
   .field {
-    @apply w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white placeholder:text-zinc-500 transition
+    @apply w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-base text-white placeholder:text-zinc-500 transition sm:text-sm
       focus:border-brand/60 focus:bg-white/[0.06] focus:outline-none;
   }
   .label { @apply mb-1.5 block text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500; }

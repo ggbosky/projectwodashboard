@@ -13,12 +13,13 @@ export function Shell({ children, onClose, label, wide }) {
   }, [onClose]);
   return (
     <motion.div
-      className="fixed inset-0 z-[60] flex items-end justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-md sm:items-center"
+      className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-black/70 backdrop-blur-md"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
+      {/* min-h-full: okno vyšší než obrazovka (mobil) se dá celé proscrollovat odshora */}
+      <div className="flex min-h-full items-end justify-center p-4 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div
         role="dialog"
         aria-modal="true"
@@ -31,6 +32,7 @@ export function Shell({ children, onClose, label, wide }) {
       >
         {children}
       </motion.div>
+      </div>
     </motion.div>
   );
 }
