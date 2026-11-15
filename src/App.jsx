@@ -60,7 +60,7 @@ function Crm({ session, auth }) {
     toastTimer.current = setTimeout(() => setToast(null), 2800);
   }, []);
 
-  const store = useCrm(session, (text) => notify(text, true));
+  const store = useCrm(session, (text) => notify(text, true), auth.accounts);
   const { clients, patch } = store;
   setTeam(store.team); // registr pro memberOf() v celé aplikaci
   const team = getTeam();

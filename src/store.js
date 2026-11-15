@@ -245,7 +245,7 @@ const loadLocal = () => {
   return SEED_CLIENTS;
 };
 
-export function useCrm(session, onError) {
+export function useCrm(session, onError, accounts) {
   const [data, setData] = useState(() => (remote ? { team: [], clients: [] } : { team: TEAM, clients: loadLocal() }));
   const [loading, setLoading] = useState(remote);
   const [status, setStatus] = useState('načítám…');
@@ -424,6 +424,20 @@ export function useCrm(session, onError) {
     if (remote) push({ type: 'remove', id });
     else setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) }));
   }, [push]);
+
+  /* Každý účet je členem týmu hned po založení — i když se ještě nepřihlásil.
+     Spouští se jen po načtení a při změně účtů (ne při změně týmu), aby zastaralý seznam
+     v cizím prohlížeči nevrátil člena, kterého admin mezitím odebral. */
+  const teamRef = useRef(data.team);
+  teamRef.current = data.team;
+  const accountUsers = accounts?.users;
+  useEffect(() => {
+    if (!remote || loading || !accountUsers) return;
+    accountUsers.forEach((u) => {
+      const id = userId(u.name);
+      if (!teamRef.current.some((m) => m.id === id)) push({ type: 'member', member: { id, name: u.name, role: 'Člen týmu', ai: false } });
+    });
+  }, [accountUsers, loading, push]);
 
   const removeMember = useCallback((id) => { if (remote) push({ type: 'unmember', id }); }, [push]);
   const updateProfile = useCallback((id, p) => { if (remote) push({ type: 'profile', id, patch: p }); }, [push]);
