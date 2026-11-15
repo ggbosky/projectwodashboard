@@ -68,7 +68,7 @@ export default function Drawer({ client, onUpdate, onStage, onAssign, onDelete, 
               </div>
               <h2 className="mt-3 font-display text-[28px] font-semibold leading-[1.05] tracking-tight">{client.name}</h2>
               <p className="mt-1 text-sm text-zinc-400">
-                {client.title} · <span className="font-serif text-base italic text-zinc-200">{client.company}</span>
+                {client.title}{client.company && <> · <span className="font-serif text-base italic text-zinc-200">{client.company}</span></>}
               </p>
               <a
                 href={`https://${client.linkedin}`}

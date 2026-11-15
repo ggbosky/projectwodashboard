@@ -92,7 +92,7 @@ export function NewClientModal({ clients, me, onClose, onSubmit }) {
   });
   const set = (patch) => setF((p) => ({ ...p, ...patch }));
   const dupes = useMemo(() => findDuplicates(clients, f), [clients, f.name, f.company, f.linkedin]);
-  const valid = f.name.trim().length > 1 && f.company.trim().length > 1;
+  const valid = f.name.trim().length > 1;
 
   const setRegion = (region) => {
     const pkg = PACKAGES.find((p) => p.id === f.pkg);
@@ -128,7 +128,7 @@ export function NewClientModal({ clients, me, onClose, onSubmit }) {
             <input id="n-name" className="field" autoFocus placeholder="Jan Novák" value={f.name} onChange={(e) => set({ name: e.target.value })} />
           </div>
           <div>
-            <label className="label" htmlFor="n-company">Firma / značka *</label>
+            <label className="label" htmlFor="n-company">Firma / značka <span className="normal-case tracking-normal text-zinc-600">(nepovinné)</span></label>
             <input id="n-company" className="field" placeholder="Novák Interiéry s.r.o." value={f.company} onChange={(e) => set({ company: e.target.value })} />
           </div>
           <div>
@@ -151,7 +151,7 @@ export function NewClientModal({ clients, me, onClose, onSubmit }) {
                   <li key={client.id} className="flex items-center gap-2 text-xs text-zinc-300">
                     <Avatar id={client.owner} size={20} />
                     <span className="truncate">
-                      <b className="font-semibold text-white">{client.name}</b> · {client.company} — {memberOf(client.owner)?.name || 'volný lead'}
+                      <b className="font-semibold text-white">{client.name}</b>{client.company && ` · ${client.company}`} — {memberOf(client.owner)?.name || 'volný lead'}
                     </span>
                     <span className="ml-auto shrink-0 text-amber-200/80">{reasons.join(', ')}</span>
                   </li>

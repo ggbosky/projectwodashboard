@@ -50,7 +50,7 @@ export function findDuplicates(clients, { name, company, linkedin }, excludeId) 
 
 export function stats(clients) {
   const won = clients.filter((c) => c.stage === 'won');
-  const open = clients.filter((c) => ['messaged', 'proposal', 'meeting'].includes(c.stage));
+  const open = clients.filter((c) => ['messaged', 'proposal', 'sent', 'meeting'].includes(c.stage));
   const revenue = won.reduce((s, c) => s + toCZK(c), 0);
   return {
     revenue,

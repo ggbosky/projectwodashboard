@@ -10,6 +10,7 @@ export const STAGES = [
   { id: 'lead', name: 'Neobepsaní klienti', short: 'Neobepsaní', hint: 'Leads z LinkedInu připravení k oslovení', color: '#A1A1AA' },
   { id: 'messaged', name: 'Napsané zprávy', short: 'Napsáno', hint: 'Odeslaný outreach na LinkedInu', color: '#38BDF8' },
   { id: 'proposal', name: 'Chtějí návrh', short: 'Návrh', hint: 'Chystáme strukturu a cenu', color: '#FBBF24' },
+  { id: 'sent', name: 'Návrh poslán', short: 'Posláno', hint: 'Návrh a cena odeslány, čekáme na reakci', color: '#FB923C' },
   { id: 'meeting', name: 'Jdou na schůzku', short: 'Schůzka', hint: 'Domluvený call / konzultace', color: '#A78BFA' },
   { id: 'won', name: 'Uzavření klienti', short: 'Uzavřeno', hint: 'Podepsáno / zaplaceno — realizace', color: '#34D399' },
 ];
@@ -112,7 +113,7 @@ export const SEED_CLIENTS = [
     us('Dobrý den, Tomáši, servisy s online objednáním termínu mají v sezóně plno o měsíc dřív. Ukážeme vám, jak na to.', '2026-11-03'),
     them('Dobrý den, zajímá mě to. Jaká je cena?', '2026-11-05'),
   ], 'Rezervace servisu online. Cenu a strukturu chystá Karel.'),
-  c("James O'Connor", 'Solicitor', 'Meridian Legal', 'Právo', 'INTL', 'IE', 'karel', 'proposal', 'business', 1800, 'EUR', '2026-11-05', [
+  c("James O'Connor", 'Solicitor', 'Meridian Legal', 'Právo', 'INTL', 'IE', 'karel', 'sent', 'business', 1800, 'EUR', '2026-11-05', [
     us('Hi James, we build clear, fast websites for small law practices. Could I send two examples?', '2026-10-26'),
     them('Go ahead — and include a rough price.', '2026-10-30'),
   ], 'Poslány 2 reference. Čeká na cenovou nabídku.'),

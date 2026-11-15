@@ -73,7 +73,7 @@ export function Kanban({ clients, currency, onOpen, onMove }) {
 
   return (
     <div className="scroll-thin -mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
-      <div className="grid min-w-[1320px] grid-cols-5 gap-4">
+      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${STAGES.length}, minmax(250px, 1fr))` }}>
         {STAGES.map((stage) => {
           const items = clients.filter((c) => c.stage === stage.id);
           const sum = items.reduce((s, c) => s + toCZK(c), 0);
