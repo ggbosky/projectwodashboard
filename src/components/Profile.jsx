@@ -48,7 +48,7 @@ export default function ProfileModal({ session, auth, onUpdate, onClose, notify 
     setError('');
     try {
       const entry = await sealToken(session.user.name, pw.a, JSON.stringify({ t: session.token, k: session.key }));
-      auth.setAccounts(await saveAccounts(session.token, (file) => ({ ...file, users: file.users.map((u) => (userId(u.name) === session.user.id ? entry : u)) })));
+      auth.setAccounts(await saveAccounts(session.token, (file) => ({ ...file, users: file.users.map((u) => (userId(u.name) === session.user.id ? { ...entry, admin: u.admin } : u)) })));
       setPw({ a: '', b: '' });
       notify('Heslo změněno');
     } catch (err) {

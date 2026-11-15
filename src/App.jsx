@@ -3,12 +3,12 @@ import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Columns3, Globe, List, Palette, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
 import { RATES } from './data';
 import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
-import { remote, useCrm, useSession } from './store';
+import { isAdmin, remote, useCrm, useSession } from './store';
 import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
 import { Kanban, ListView } from './components/Pipeline';
 import Drawer from './components/Drawer';
-import Auth, { AccountsModal } from './components/Auth';
+import Auth, { AdminModal } from './components/Auth';
 import ProfileModal from './components/Profile';
 import { CollisionModal, NewClientModal, Toast } from './components/Modals';
 
@@ -167,6 +167,7 @@ function Crm({ session, auth }) {
 
   /* Osobní vzhled a rozložení přihlášeného člena. */
   const my = remote ? memberOf(uid) : null;
+  const admin = remote && isAdmin(auth.accounts, uid);
   const myPrefs = my?.prefs || {};
   const myColor = my?.color;
   useEffect(() => {
@@ -254,9 +255,11 @@ function Crm({ session, auth }) {
                 <button className="btn-ghost !py-1 !pl-1 !pr-2.5" onClick={() => setProfile(true)} title="Můj profil a vzhled" aria-label="Můj profil">
                   <Avatar id={uid} size={26} /> <Palette size={14} className="text-zinc-400" />
                 </button>
-                <button className="btn-ghost !p-2" onClick={() => setAccounts(true)} title="Účty týmu" aria-label="Účty týmu">
-                  <UserCog size={16} />
-                </button>
+                {admin && (
+                  <button className="btn-ghost !px-2.5 !text-brand" onClick={() => setAccounts(true)} title="Správa týmu (admin)" aria-label="Správa týmu">
+                    <UserCog size={16} /> <span className="hidden text-xs font-semibold uppercase tracking-wider xl:inline">Admin</span>
+                  </button>
+                )}
                 <button className="btn-ghost !p-2" onClick={auth.signOut} title={`Odhlásit (${session.user.name})`} aria-label="Odhlásit se">
                   <LogOut size={16} />
                 </button>
@@ -407,7 +410,7 @@ function Crm({ session, auth }) {
         {profile && <ProfileModal key="profile" session={session} auth={auth} onUpdate={(p) => store.updateProfile(uid, p)} onClose={() => setProfile(false)} notify={notify} />}
       </AnimatePresence>
       <AnimatePresence>
-        {accounts && <AccountsModal key="accounts" session={session} auth={auth} onClose={() => setAccounts(false)} notify={notify} />}
+        {accounts && admin && <AdminModal key="accounts" session={session} auth={auth} clients={clients} onRemoveMember={store.removeMember} onClose={() => setAccounts(false)} notify={notify} />}
       </AnimatePresence>
       <AnimatePresence>{toast && <Toast key={toast.key} toast={toast} />}</AnimatePresence>
     </div>

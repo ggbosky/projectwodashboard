@@ -148,6 +148,10 @@ export async function buildInvite(code, token, key) {
 const BAD_LOGIN = 'Nesprávné jméno nebo heslo.';
 const sameUser = (a, b) => userId(a) === userId(b);
 
+/* Admin spravuje členy. Starší instalace bez označení: adminem je první založený účet. */
+export const withAdmin = (users) => (users.some((u) => u.admin) ? users : users.map((u, i) => (i === 0 ? { ...u, admin: true } : u)));
+export const isAdmin = (accounts, id) => withAdmin(accounts.users).some((u) => u.admin && userId(u.name) === id);
+
 export function useSession() {
   const [session, setSession] = useState(null);
   const [accounts, setAccounts] = useState({ users: [], invite: null, inviteCode: null });
@@ -225,6 +229,9 @@ function applyOps(base, ops) {
     else if (op.type === 'member' && !team.some((m) => m.id === op.member.id)) {
       const humans = team.filter((m) => !m.ai).length;
       team = [...team, { ...op.member, color: op.member.color || PALETTE[humans % PALETTE.length] }];
+    } else if (op.type === 'unmember') {
+      team = team.filter((m) => m.id !== op.id);
+      clients = clients.map((c) => (c.owner === op.id ? { ...c, owner: null } : c));
     } else if (op.type === 'profile') team = team.map((m) => (m.id === op.id ? { ...m, ...op.patch } : m));
   }
   return { team, clients };
@@ -418,9 +425,10 @@ export function useCrm(session, onError) {
     else setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) }));
   }, [push]);
 
+  const removeMember = useCallback((id) => { if (remote) push({ type: 'unmember', id }); }, [push]);
   const updateProfile = useCallback((id, p) => { if (remote) push({ type: 'profile', id, patch: p }); }, [push]);
 
   const resetDemo = useCallback(() => { if (!remote) setData((d) => ({ ...d, clients: SEED_CLIENTS })); }, []);
 
-  return { clients: data.clients, team: data.team, loading, status, patch, add, remove, updateProfile, resetDemo };
+  return { clients: data.clients, team: data.team, loading, status, patch, add, remove, updateProfile, removeMember, resetDemo };
 }

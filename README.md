@@ -20,12 +20,14 @@ React 18 · Vite · Tailwind CSS · Framer Motion · GitHub Pages + GitHub API
    - platnost co nejdelší — po vypršení je potřeba nastavení zopakovat
 3. **První nastavení** — otevřete web, vložte token a založte svůj účet (jméno + heslo).
 
-## Účty a personalizace
+## Účty, admin a personalizace
 
-- **Vytvoření účtu** — kolega na přihlašovací stránce zvolí „Vytvořit účet“, zadá vlastní jméno, heslo a **kód týmu**. Kód najde kterýkoli přihlášený člen v „Účtech týmu“ (ikona vedle odhlášení); tamtéž jde vygenerovat nový, čímž starý přestane platit.
-- **Můj profil** (ikona palety) — zobrazované jméno, role, barva (avatar i akcent celé aplikace), avatar, viditelné sekce dashboardu, výchozí pohled a měna, změna hesla. Nastavení se ukládá k účtu, takže platí na všech zařízeních.
+- **Admin** — účet z prvního nastavení (u starších instalací první založený účet). V hlavičce má tlačítko „Admin“ se správou týmu: přidání člena (jméno + heslo), odebrání, nastavení nového hesla, udělení a odebrání admin práv, kód týmu. Klienti odebraného člena se uvolní jako volné leady. Poslední admin nejde odebrat ani zbavit práv.
+- **Vytvoření účtu kolegou** — na přihlašovací stránce „Vytvořit účet“: vlastní jméno, heslo a **kód týmu**, který mu pošle admin.
+- **Můj profil** (ikona palety) — zobrazované jméno, role, barva (avatar i akcent celé aplikace), avatar, viditelné sekce dashboardu, výchozí pohled a měna, změna hesla. Nastavení se ukládá k účtu.
 - Data klientů a pipeline jsou pro všechny společná; liší se jen vzhled a rozložení.
-- Zapomenuté heslo nastaví kolegovi kterýkoli přihlášený člen v „Účtech týmu“.
+
+Admin práva hlídá aplikace, ne server: všichni členové sdílejí stejný přístup k datům, takže technicky zdatný člen by omezení dokázal obejít. Pro tým, který si věří, to stačí; není to ochrana proti členovi se zlým úmyslem.
 
 ## Jak přihlášení a šifrování funguje
 
