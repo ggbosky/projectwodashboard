@@ -88,7 +88,7 @@ export function CollisionModal({ collision, onClose }) {
 
 export function NewClientModal({ clients, me, onClose, onSubmit }) {
   const [f, setF] = useState({
-    name: '', title: '', company: '', linkedin: '', region: 'CZ', country: '', pkg: 'business', value: 20000, currency: 'CZK', owner: me, stage: 'lead',
+    name: '', title: '', company: '', linkedin: '', region: 'CZ', country: '', pkg: 'business', value: 20000, currency: 'CZK', owner: me, stage: STAGES[0].id,
   });
   const set = (patch) => setF((p) => ({ ...p, ...patch }));
   const dupes = useMemo(() => findDuplicates(clients, f), [clients, f.name, f.company, f.linkedin]);

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Columns3, Globe, List, Palette, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
 import { RATES } from './data';
-import { getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
+import { fixStage, getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
 import { isAdmin, remote, useCrm, useSession } from './store';
 import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
@@ -61,7 +61,8 @@ function Crm({ session, auth }) {
   }, []);
 
   const store = useCrm(session, (text) => notify(text, true), auth.accounts);
-  const { clients, patch } = store;
+  const { patch } = store;
+  const clients = useMemo(() => store.clients.map(fixStage), [store.clients]);
   setTeam(store.team); // registr pro memberOf() v celé aplikaci
   const team = getTeam();
   // V ostrém režimu vystupuje každý za sebe; přepnout se lze jen na AI agenta bez vlastního účtu.
@@ -89,7 +90,7 @@ function Crm({ session, auth }) {
     const c = clients.find((x) => x.id === id);
     if (!c || c.stage === stage) return;
     guard(c, `přesunout klienta do fáze „${stageOf(stage).name}“`, () => {
-      const claim = !c.owner && stage !== 'lead';
+      const claim = !c.owner;
       patch(id, { stage, ...(claim ? { owner: me } : {}) });
       notify(claim ? `${c.name} → ${stageOf(stage).short} · přiřazeno: ${meName}` : `${c.name} → ${stageOf(stage).short}`);
     });

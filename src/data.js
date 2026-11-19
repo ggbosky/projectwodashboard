@@ -7,7 +7,6 @@ export const TEAM = [
 ];
 
 export const STAGES = [
-  { id: 'lead', name: 'Neobepsaní klienti', short: 'Neobepsaní', hint: 'Leads z LinkedInu připravení k oslovení', color: '#A1A1AA' },
   { id: 'messaged', name: 'Napsané zprávy', short: 'Napsáno', hint: 'Odeslaný outreach na LinkedInu', color: '#38BDF8' },
   { id: 'proposal', name: 'Chtějí návrh', short: 'Návrh', hint: 'Chystáme strukturu a cenu', color: '#FBBF24' },
   { id: 'sent', name: 'Návrh poslán', short: 'Posláno', hint: 'Návrh a cena odeslány, čekáme na reakci', color: '#FB923C' },
@@ -135,12 +134,12 @@ export const SEED_CLIENTS = [
     us('Hi Dr. Carter, practices with online booking on their own site see fewer no-shows. Could I share a short example?', '2026-11-13'),
   ]),
 
-  // ——— Neobepsaní
-  c('Roman Malý', 'Majitel', 'Autoservis Malý', 'Služby', 'CZ', 'CZ', null, 'lead', 'start', 10000, 'CZK', '2026-11-13'),
-  c('Pavel Sedlák', 'Vinař', 'Vinařství Sedlák', 'E-shop', 'CZ', 'CZ', null, 'lead', 'premium', 50000, 'CZK', '2026-11-13', [], 'Prodává jen přes e-mail. Potenciál na e-shop s degustačními balíčky.'),
-  c('Nikola Jandová', 'Zakladatelka', 'Kosmetika Bloom', 'E-shop', 'CZ', 'CZ', 'karel', 'lead', 'business', 20000, 'CZK', '2026-11-12', [], 'Rezervováno pro Karla — zná ji osobně, osloví sám.'),
-  c('Hannah Reed', 'Interior Designer', 'Oakwell Interiors', 'Design', 'INTL', 'UK', null, 'lead', 'premium', 2500, 'EUR', '2026-11-12'),
-  c('Michal Hrubý', 'Jednatel', 'Stavby Hrubý', 'Stavebnictví', 'CZ', 'CZ', null, 'lead', 'business', 20000, 'CZK', '2026-11-11'),
-  c('Anna Kessler', 'Physiotherapeutin', 'Kessler Physio', 'Zdraví', 'INTL', 'CH', 'marek', 'lead', 'business', 1600, 'EUR', '2026-11-10', [], 'Rezervováno pro Marka — doporučení od Fyzio Vltava.'),
-  c('Veronika Urbanová', 'Koučka', 'Veronika Urbanová Coaching', 'Osobní značka', 'CZ', 'CZ', null, 'lead', 'start', 10000, 'CZK', '2026-11-09'),
+  // ——— Napsáno (bez vlastníka = volné leady)
+  c('Roman Malý', 'Majitel', 'Autoservis Malý', 'Služby', 'CZ', 'CZ', null, 'messaged', 'start', 10000, 'CZK', '2026-11-13'),
+  c('Pavel Sedlák', 'Vinař', 'Vinařství Sedlák', 'E-shop', 'CZ', 'CZ', null, 'messaged', 'premium', 50000, 'CZK', '2026-11-13', [], 'Prodává jen přes e-mail. Potenciál na e-shop s degustačními balíčky.'),
+  c('Nikola Jandová', 'Zakladatelka', 'Kosmetika Bloom', 'E-shop', 'CZ', 'CZ', 'karel', 'messaged', 'business', 20000, 'CZK', '2026-11-12', [], 'Rezervováno pro Karla — zná ji osobně, osloví sám.'),
+  c('Hannah Reed', 'Interior Designer', 'Oakwell Interiors', 'Design', 'INTL', 'UK', null, 'messaged', 'premium', 2500, 'EUR', '2026-11-12'),
+  c('Michal Hrubý', 'Jednatel', 'Stavby Hrubý', 'Stavebnictví', 'CZ', 'CZ', null, 'messaged', 'business', 20000, 'CZK', '2026-11-11'),
+  c('Anna Kessler', 'Physiotherapeutin', 'Kessler Physio', 'Zdraví', 'INTL', 'CH', 'marek', 'messaged', 'business', 1600, 'EUR', '2026-11-10', [], 'Rezervováno pro Marka — doporučení od Fyzio Vltava.'),
+  c('Veronika Urbanová', 'Koučka', 'Veronika Urbanová Coaching', 'Osobní značka', 'CZ', 'CZ', null, 'messaged', 'start', 10000, 'CZK', '2026-11-09'),
 ];

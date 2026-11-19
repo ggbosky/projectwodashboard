@@ -14,7 +14,9 @@ export function money(amount, currency) {
   return formatters[currency].format(Math.round(amount));
 }
 
-export const stageOf = (id) => STAGES.find((s) => s.id === id);
+export const stageOf = (id) => STAGES.find((s) => s.id === id) || STAGES[0];
+// Klienti ze zrušených fází (např. „Neobepsaní klienti“) se zobrazí v první fázi.
+export const fixStage = (c) => (STAGES.some((s) => s.id === c.stage) ? c : { ...c, stage: STAGES[0].id });
 export const memberOf = (id) => team.find((m) => m.id === id) || null;
 export const pkgOf = (id) => PACKAGES.find((p) => p.id === id);
 
