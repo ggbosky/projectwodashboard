@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowUpDown, Inbox, MessageSquare } from 'lucide-react';
+import { ArrowUpDown, Hammer, Inbox, MessageSquare } from 'lucide-react';
 import { STAGES } from '../data';
 import { fromCZK, memberOf, money, shortDate, stageOf, toCZK } from '../lib';
 import { Avatar, PkgPill, RegionPill, StagePill } from './ui';
@@ -15,8 +15,44 @@ function Owner({ id }) {
   );
 }
 
-function ClientCard({ client, currency, dragging, onOpen, onDragStart, onDragEnd }) {
+/* Ve fázi „Chtějí návrh“ si člen může návrh zabrat — karta pak zčervená, aby ho nedělali dva. */
+export const BUILD_STAGE = 'proposal';
+export const builderOf = (client) => (client.stage === BUILD_STAGE && client.building ? memberOf(client.building) || { id: client.building, name: '?' } : null);
+
+export function BuildBadge({ client }) {
+  const b = builderOf(client);
+  if (!b) return null;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-300 ring-1 ring-inset ring-red-400/40">
+      <Hammer size={11} /> Dělá {b.name}
+    </span>
+  );
+}
+
+function BuildButton({ client, me, onBuild }) {
+  const b = builderOf(client);
+  const mine = b && b.id === me;
+  return (
+    <button
+      type="button"
+      draggable={false}
+      onClick={(e) => { e.stopPropagation(); onBuild(client.id); }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-semibold transition ${
+        b
+          ? 'border-red-400/50 bg-red-500/20 text-red-200 hover:bg-red-500/30'
+          : 'border-dashed border-white/15 text-zinc-400 hover:border-red-400/50 hover:bg-red-500/10 hover:text-red-200'
+      }`}
+    >
+      <Hammer size={13} />
+      {!b ? 'Zabrat — dělám návrh' : mine ? 'Děláte vy · uvolnit' : `Dělá ${b.name} · převzít`}
+    </button>
+  );
+}
+
+function ClientCard({ client, currency, dragging, me, onOpen, onBuild, onDragStart, onDragEnd }) {
   const stage = stageOf(client.stage);
+  const taken = builderOf(client);
   return (
     <motion.div
       layout
@@ -38,8 +74,13 @@ function ClientCard({ client, currency, dragging, onOpen, onDragStart, onDragEnd
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(client.id))}
         role="button"
         tabIndex={0}
-        className="group relative cursor-grab rounded-xl border border-white/[0.08] bg-ink-800/80 p-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-ink-700/80 active:cursor-grabbing"
-        style={{ '--glow': stage.color }}
+        className={`group relative cursor-grab rounded-xl border p-3.5 transition duration-200 hover:-translate-y-0.5 active:cursor-grabbing ${
+          taken
+            ? 'border-red-500/60 bg-red-950/70 shadow-[0_0_30px_-10px_rgba(239,68,68,0.8)] hover:border-red-400/80 hover:bg-red-900/60'
+            : 'border-white/[0.08] bg-ink-800/80 hover:border-white/20 hover:bg-ink-700/80'
+        }`}
+        style={{ '--glow': taken ? '#EF4444' : stage.color }}
+        data-taken={taken ? 'true' : undefined}
       >
         <span className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[0_8px_40px_-12px_var(--glow)] transition-opacity duration-300 group-hover:opacity-100" />
         <div className="flex items-start justify-between gap-2">
@@ -52,8 +93,9 @@ function ClientCard({ client, currency, dragging, onOpen, onDragStart, onDragEnd
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <PkgPill id={client.pkg} />
           <RegionPill region={client.region} country={client.country} />
+          <BuildBadge client={client} />
         </div>
-        <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-2.5">
+        <div className={`mt-3 flex items-center justify-between border-t pt-2.5 ${taken ? 'border-red-400/20' : 'border-white/[0.06]'}`}>
           <Owner id={client.owner} />
           <span className="flex items-center gap-2 text-[11px] text-zinc-500">
             {client.messages.length > 0 && (
@@ -62,12 +104,13 @@ function ClientCard({ client, currency, dragging, onOpen, onDragStart, onDragEnd
             <span className="num">{shortDate(client.updated)}</span>
           </span>
         </div>
+        {client.stage === BUILD_STAGE && onBuild && <BuildButton client={client} me={me} onBuild={onBuild} />}
       </div>
     </motion.div>
   );
 }
 
-export function Kanban({ clients, currency, onOpen, onMove }) {
+export function Kanban({ clients, currency, me, onOpen, onMove, onBuild }) {
   const [dragId, setDragId] = useState(null);
   const [over, setOver] = useState(null);
 
@@ -120,7 +163,9 @@ export function Kanban({ clients, currency, onOpen, onMove }) {
                       client={c}
                       currency={currency}
                       dragging={dragId === c.id}
+                      me={me}
                       onOpen={onOpen}
+                      onBuild={onBuild}
                       onDragStart={setDragId}
                       onDragEnd={() => { setDragId(null); setOver(null); }}
                     />
@@ -189,13 +234,13 @@ export function ListView({ clients, currency, onOpen }) {
                 onClick={() => onOpen(c.id)}
                 onKeyDown={(e) => e.key === 'Enter' && onOpen(c.id)}
                 tabIndex={0}
-                className="cursor-pointer border-b border-white/[0.05] transition-colors last:border-0 hover:bg-white/[0.04]"
+                className={`cursor-pointer border-b border-white/[0.05] transition-colors last:border-0 ${builderOf(c) ? 'bg-red-500/[0.08] hover:bg-red-500/[0.14]' : 'hover:bg-white/[0.04]'}`}
               >
                 <td className="px-4 py-3">
                   <div className="font-display font-semibold tracking-tight">{c.name}</div>
                   <div className="text-xs text-zinc-500">{c.company}</div>
                 </td>
-                <td className="px-4 py-3"><StagePill id={c.stage} /></td>
+                <td className="px-4 py-3"><div className="flex flex-wrap gap-1.5"><StagePill id={c.stage} /><BuildBadge client={c} /></div></td>
                 <td className="px-4 py-3"><PkgPill id={c.pkg} /></td>
                 <td className="px-4 py-3"><RegionPill region={c.region} country={c.country} /></td>
                 <td className="px-4 py-3"><Owner id={c.owner} /></td>

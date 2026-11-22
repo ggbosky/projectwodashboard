@@ -39,7 +39,7 @@ export function Shell({ children, onClose, label, wide }) {
 
 /* Varování anti-duplicity: klient už patří někomu jinému z týmu. */
 export function CollisionModal({ collision, onClose }) {
-  const { client, title, body, reasons, primary, secondary } = collision;
+  const { client, title, body, reasons, primary, secondary, ownerLabel } = collision;
   const owner = memberOf(client.owner);
   return (
     <Shell onClose={onClose} label="Varování: kolize vlastnictví klienta">
@@ -67,7 +67,7 @@ export function CollisionModal({ collision, onClose }) {
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-3 text-xs">
             <div>
-              <dt className="text-zinc-500">Klient patří</dt>
+              <dt className="text-zinc-500">{ownerLabel || 'Klient patří'}</dt>
               <dd className="mt-0.5 font-medium" style={{ color: owner?.color }}>{owner ? owner.name : 'Zatím nikomu'}</dd>
             </div>
             <div>

@@ -6,7 +6,7 @@ import { fixStage, getTeam, memberOf, norm, setTeam, stageOf, today } from './li
 import { isAdmin, remote, useCrm, useSession } from './store';
 import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
-import { Kanban, ListView } from './components/Pipeline';
+import { BUILD_STAGE, Kanban, ListView } from './components/Pipeline';
 import Drawer from './components/Drawer';
 import Auth, { AdminModal } from './components/Auth';
 import ProfileModal from './components/Profile';
@@ -94,6 +94,33 @@ function Crm({ session, auth }) {
       patch(id, { stage, ...(claim ? { owner: me } : {}) });
       notify(claim ? `${c.name} → ${stageOf(stage).short} · přiřazeno: ${meName}` : `${c.name} → ${stageOf(stage).short}`);
     });
+  };
+
+  /* Zabrání návrhu: kdo na webu právě pracuje. Cizí zábor jde převzít jen přes varování. */
+  const toggleBuild = (id) => {
+    const c = clients.find((x) => x.id === id);
+    if (!c) return;
+    const current = c.stage === BUILD_STAGE ? c.building : null;
+    if (current === me) {
+      patch(id, { building: null });
+      notify(`${c.name} — návrh uvolněn`);
+      return;
+    }
+    const take = () => {
+      patch(id, { building: me, ...(c.stage !== BUILD_STAGE ? { stage: BUILD_STAGE } : {}) });
+      notify(`${c.name} — návrh teď dělá ${meName}`);
+    };
+    const other = memberOf(current);
+    if (!current) return take();
+    setCollision({
+      client: { ...c, owner: current },
+      ownerLabel: 'Návrh dělá',
+      title: `Na návrhu už pracuje ${other?.name || 'kolega'}`,
+      body: `${c.name} má červený štítek — návrh webu právě dělá ${other?.name || 'někdo jiný'}. Převezměte ho jen po domluvě, ať nevzniknou dva návrhy.`,
+      primary: { label: `Nechat u: ${other?.name || 'kolegy'}`, run: () => setCollision(null) },
+      secondary: { label: 'Jsme domluveni — převzít návrh', run: () => { take(); setCollision(null); } },
+    });
+    return undefined;
   };
 
   const assign = (id, owner) => {
@@ -362,7 +389,7 @@ function Crm({ session, auth }) {
                 transition={{ duration: 0.22 }}
               >
                 {view === 'kanban' ? (
-                  <Kanban clients={visible} currency={currency} onOpen={setOpenId} onMove={moveStage} />
+                  <Kanban clients={visible} currency={currency} me={me} onOpen={setOpenId} onMove={moveStage} onBuild={toggleBuild} />
                 ) : (
                   <ListView clients={visible} currency={currency} onOpen={setOpenId} />
                 )}
@@ -395,6 +422,8 @@ function Crm({ session, auth }) {
             client={open}
             onUpdate={(p) => patch(open.id, p)}
             onStage={(s) => moveStage(open.id, s)}
+            me={me}
+            onBuild={() => toggleBuild(open.id)}
             onAssign={(o) => assign(open.id, o)}
             onDelete={() => removeClient(open.id)}
             onClose={() => setOpenId(null)}

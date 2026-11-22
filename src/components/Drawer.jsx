@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ExternalLink, Send, Trash2, X } from 'lucide-react';
+import { ExternalLink, Hammer, Send, Trash2, X } from 'lucide-react';
 import { PACKAGES, STAGES } from '../data';
 import { getTeam, fromCZK, memberOf, money, shortDate, today, toCZK } from '../lib';
 import { Avatar, LinkedInGlyph, RegionPill, Segmented } from './ui';
+import { BUILD_STAGE, builderOf } from './Pipeline';
 
 const OTHER = { CZK: ['EUR', 'USD'], EUR: ['CZK', 'USD'], USD: ['CZK', 'EUR'] };
 
@@ -19,7 +20,8 @@ function Section({ title, children, aside }) {
   );
 }
 
-export default function Drawer({ client, onUpdate, onStage, onAssign, onDelete, onClose }) {
+export default function Drawer({ client, me, onUpdate, onStage, onAssign, onBuild, onDelete, onClose }) {
+  const builder = builderOf(client);
   const [draft, setDraft] = useState('');
   const [from, setFrom] = useState('us');
   const owner = memberOf(client.owner);
@@ -129,6 +131,24 @@ export default function Drawer({ client, onUpdate, onStage, onAssign, onDelete, 
             })}
           </div>
         </Section>
+
+        {client.stage === BUILD_STAGE && (
+          <Section title="Návrh webu">
+            <div className={`flex items-center gap-3 rounded-xl border p-3 ${builder ? 'border-red-500/50 bg-red-500/10' : 'border-white/[0.08] bg-white/[0.03]'}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${builder ? 'bg-red-500/20 text-red-300' : 'bg-white/[0.06] text-zinc-500'}`}><Hammer size={17} /></span>
+              <div className="min-w-0 flex-1 text-sm">
+                <div className={`font-medium ${builder ? 'text-red-200' : 'text-zinc-200'}`}>{builder ? `Návrh dělá ${builder.id === me ? 'vy' : builder.name}` : 'Návrh zatím nikdo nedělá'}</div>
+                <div className="text-xs text-zinc-500">{builder ? 'Karta svítí červeně, ostatní vidí, že je zabráno.' : 'Zabráním dáte týmu vědět, že na webu pracujete.'}</div>
+              </div>
+              <button
+                onClick={onBuild}
+                className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium transition ${builder ? 'border border-red-400/50 text-red-200 hover:bg-red-500/20' : 'bg-red-500 text-white hover:bg-red-400'}`}
+              >
+                {!builder ? 'Zabrat' : builder.id === me ? 'Uvolnit' : 'Převzít'}
+              </button>
+            </div>
+          </Section>
+        )}
 
         <Section title="Fáze v pipeline">
           <div className="flex flex-col gap-1.5">
