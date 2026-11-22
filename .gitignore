@@ -4,3 +4,4 @@ release
 .env
 .env.local
 *.zip
+*.exe
