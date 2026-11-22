@@ -1,0 +1,17 @@
+{
+  "name": "projectwo-crm-desktop",
+  "productName": "Project Two CRM",
+  "version": "1.0.0",
+  "description": "Desktopová aplikace interního CRM studia Project Two",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package:win": "electron-packager . \"Project Two CRM\" --platform=win32 --arch=x64 --out=dist --overwrite --prune=false --ignore=\"^/(dist|node_modules|set-icon\\.mjs|README\\.md)\" && node set-icon.mjs \"dist/Project Two CRM-win32-x64/Project Two CRM.exe\" icon.ico 1.0.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.4.1",
+    "resedit": "^3.1.1"
+  }
+}
