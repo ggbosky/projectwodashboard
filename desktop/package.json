@@ -7,11 +7,37 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "package:win": "electron-packager . \"Project Two CRM\" --platform=win32 --arch=x64 --out=dist --overwrite --prune=false --ignore=\"^/(dist|node_modules|set-icon\\.mjs|README\\.md)\" && node set-icon.mjs \"dist/Project Two CRM-win32-x64/Project Two CRM.exe\" icon.ico 1.0.0"
+    "package:win": "electron-packager . \"Project Two CRM\" --platform=win32 --arch=x64 --out=dist --overwrite --prune=false --ignore=\"^/(dist|node_modules|set-icon\\.mjs|README\\.md)\" && node set-icon.mjs \"dist/Project Two CRM-win32-x64/Project Two CRM.exe\" icon.ico 1.0.0",
+    "build:win": "electron-builder --win portable --x64"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
     "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "resedit": "^3.1.1"
+  },
+  "author": "Project Two",
+  "build": {
+    "appId": "com.projectwo.crm",
+    "productName": "Project Two CRM",
+    "copyright": "Project Two",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "icon.png",
+      "package.json"
+    ],
+    "afterPack": "./after-pack.cjs",
+    "win": {
+      "target": "portable",
+      "icon": "icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Project Two CRM.exe",
+      "unpackDirName": "ProjectTwoCRM"
+    }
   }
 }
