@@ -31,8 +31,8 @@ jobs:
         env:
           VITE_APP_REPO: ${{ github.repository }}
           VITE_APP_BRANCH: ${{ github.ref_name }}
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
