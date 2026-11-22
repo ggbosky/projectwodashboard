@@ -36,8 +36,9 @@
       "signAndEditExecutable": false
     },
     "portable": {
-      "artifactName": "Project Two CRM.exe",
+      "artifactName": "ProjectTwoCRM.exe",
       "unpackDirName": "ProjectTwoCRM"
-    }
+    },
+    "compression": "normal"
   }
 }

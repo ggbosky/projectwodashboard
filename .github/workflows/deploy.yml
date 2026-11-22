@@ -26,11 +26,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
       - run: npm ci
       - run: npm run build
         env:
           VITE_APP_REPO: ${{ github.repository }}
           VITE_APP_BRANCH: ${{ github.ref_name }}
+      # Desktopová aplikace pro Windows — jeden .exe ke stažení z webu.
+      - name: Build Windows app
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run build:win
+          cp release/ProjectTwoCRM.exe ../dist/ProjectTwoCRM.exe
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

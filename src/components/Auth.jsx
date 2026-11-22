@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Copy, ExternalLink, KeyRound, LoaderCircle, Lock, RefreshCw, ShieldCheck, Ticket, Trash2, User, UserPlus, X } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink, KeyRound, LoaderCircle, Lock, RefreshCw, ShieldCheck, Ticket, Trash2, User, UserPlus, X } from 'lucide-react';
 import { MIN_PASSWORD, decryptData, newDataKey, newInviteCode, sealToken, userId } from '../auth';
 import { APP_REPO, PALETTE, buildInvite, initData, saveAccounts, verifyAccess, withAdmin } from '../store';
 import { memberOf } from '../lib';
 import { Shell } from './Modals';
 import { Avatar, LogoMark, Segmented } from './ui';
+
+const isDesktopApp = typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent);
 
 function Frame({ children, wide }) {
   return (
@@ -24,6 +26,15 @@ function Frame({ children, wide }) {
         </div>
         {children}
       </motion.div>
+      {!isDesktopApp && (
+        <a
+          href={`${import.meta.env.BASE_URL}ProjectTwoCRM.exe`}
+          download
+          className="absolute bottom-5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500 transition hover:text-zinc-200"
+        >
+          <Download size={13} /> Stáhnout aplikaci pro Windows
+        </a>
+      )}
     </div>
   );
 }
