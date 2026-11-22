@@ -9,6 +9,36 @@ import { Avatar, LogoMark, Segmented } from './ui';
 
 const isDesktopApp = typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent);
 
+const isInstalled = typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches;
+
+/* Odkazy na přihlašovací stránce: nainstalovat jako aplikaci (Chrome/Edge) nebo stáhnout .exe. */
+function InstallLinks() {
+  const [prompt, setPrompt] = useState(() => (typeof window !== 'undefined' ? window.__installPrompt : null));
+  useEffect(() => {
+    const on = () => setPrompt(window.__installPrompt);
+    window.addEventListener('installable', on);
+    return () => window.removeEventListener('installable', on);
+  }, []);
+  if (isDesktopApp || isInstalled) return null;
+  const link = 'inline-flex items-center gap-1.5 whitespace-nowrap transition hover:text-zinc-200';
+  return (
+    <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 flex-wrap justify-center gap-x-5 gap-y-1 text-xs text-zinc-500">
+      {prompt && (
+        <button
+          type="button"
+          className={`${link} font-medium text-brand hover:text-brand-soft`}
+          onClick={async () => { prompt.prompt(); await prompt.userChoice.catch(() => null); window.__installPrompt = null; setPrompt(null); }}
+        >
+          <Download size={13} /> Nainstalovat jako aplikaci
+        </button>
+      )}
+      <a href={`${import.meta.env.BASE_URL}ProjectTwoCRM.exe`} download className={link}>
+        <Download size={13} /> Stáhnout .exe pro Windows
+      </a>
+    </div>
+  );
+}
+
 function Frame({ children, wide }) {
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
@@ -26,15 +56,7 @@ function Frame({ children, wide }) {
         </div>
         {children}
       </motion.div>
-      {!isDesktopApp && (
-        <a
-          href={`${import.meta.env.BASE_URL}ProjectTwoCRM.exe`}
-          download
-          className="absolute bottom-5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500 transition hover:text-zinc-200"
-        >
-          <Download size={13} /> Stáhnout aplikaci pro Windows
-        </a>
-      )}
+      <InstallLinks />
     </div>
   );
 }
