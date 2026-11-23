@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Banknote, CalendarClock, CircleCheckBig, Gauge, TrendingUp, Users } from 'lucide-react';
+import { XCircle, Banknote, CalendarClock, CircleCheckBig, Gauge, TrendingUp, Users } from 'lucide-react';
 import { PACKAGES, STAGES } from '../data';
 import { getTeam, fromCZK, money, stats, toCZK } from '../lib';
 import { Avatar, Counter } from './ui';
@@ -68,7 +68,7 @@ export function Kpis({ clients, currency }) {
         label="Uzavřené weby"
         accent="#34D399"
         delay={0.12}
-        sub={`z ${clients.length} klientů v databázi`}
+        sub={(() => { const lost = clients.filter((c) => c.stage === 'lost').length; const done = s.wonCount + lost; return done ? `úspěšnost ${Math.round((s.wonCount / done) * 100)} % · ${lost} nevyšlo` : 'zatím nic uzavřeno'; })()}
       >
         <Counter value={s.wonCount} />
       </KpiCard>
@@ -130,10 +130,11 @@ export function TeamCards({ clients, currency, ownerFilter, onOwnerFilter }) {
                 transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               />
             </div>
-            <div className="mt-4 flex gap-5 text-xs text-zinc-400">
-              <span className="flex items-center gap-1.5"><Users size={13} className="text-zinc-500" /><b className="num font-semibold text-white">{mine.length}</b> klientů</span>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-zinc-400">
+              <span className="flex items-center gap-1.5"><Users size={13} className="text-zinc-500" /><b className="num font-semibold text-white">{mine.filter((c) => c.stage !== 'lost').length}</b> klientů</span>
               <span className="flex items-center gap-1.5"><CalendarClock size={13} className="text-zinc-500" /><b className="num font-semibold text-white">{meetings}</b> aktivní schůzky</span>
               <span className="flex items-center gap-1.5"><CircleCheckBig size={13} className="text-zinc-500" /><b className="num font-semibold text-white">{mine.filter((c) => c.stage === 'won').length}</b> uzavřeno</span>
+              {mine.some((c) => c.stage === 'lost') && <span className="flex items-center gap-1.5 text-red-300/80"><XCircle size={13} /><b className="num font-semibold">{mine.filter((c) => c.stage === 'lost').length}</b> nevyšlo</span>}
             </div>
           </motion.button>
         );

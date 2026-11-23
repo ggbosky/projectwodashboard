@@ -74,7 +74,7 @@ function ClientCard({ client, currency, dragging, me, onOpen, onBuild, onDragSta
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(client.id))}
         role="button"
         tabIndex={0}
-        className={`group relative cursor-grab rounded-xl border p-3.5 transition duration-200 hover:-translate-y-0.5 active:cursor-grabbing ${
+        className={`group relative cursor-grab rounded-xl border p-3.5 transition duration-200 hover:-translate-y-0.5 active:cursor-grabbing ${client.stage === 'lost' ? 'opacity-60 grayscale-[0.6] hover:opacity-100 hover:grayscale-0' : ''} ${
           taken
             ? 'border-red-500/60 bg-red-950/70 shadow-[0_0_30px_-10px_rgba(239,68,68,0.8)] hover:border-red-400/80 hover:bg-red-900/60'
             : 'border-white/[0.08] bg-ink-800/80 hover:border-white/20 hover:bg-ink-700/80'
@@ -85,7 +85,7 @@ function ClientCard({ client, currency, dragging, me, onOpen, onBuild, onDragSta
         <span className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[0_8px_40px_-12px_var(--glow)] transition-opacity duration-300 group-hover:opacity-100" />
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="truncate font-display text-[15px] font-semibold tracking-tight">{client.name}</div>
+            <div className={`truncate font-display text-[15px] font-semibold tracking-tight ${client.stage === 'lost' ? 'line-through decoration-red-400/60' : ''}`}>{client.name}</div>
             <div className="truncate text-xs text-zinc-500">{client.company}</div>
           </div>
           <div className="num shrink-0 font-display text-sm font-semibold">{money(fromCZK(toCZK(client), currency), currency)}</div>

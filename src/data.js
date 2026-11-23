@@ -12,6 +12,7 @@ export const STAGES = [
   { id: 'sent', name: 'Návrh poslán', short: 'Posláno', hint: 'Návrh a cena odeslány, čekáme na reakci', color: '#FB923C' },
   { id: 'meeting', name: 'Jdou na schůzku', short: 'Schůzka', hint: 'Domluvený call / konzultace', color: '#A78BFA' },
   { id: 'won', name: 'Uzavření klienti', short: 'Uzavřeno', hint: 'Podepsáno / zaplaceno — realizace', color: '#34D399' },
+  { id: 'lost', name: 'Nevyšlo', short: 'Nevyšlo', hint: 'Odmítli, neozvali se nebo z toho sešlo', color: '#F87171' },
 ];
 
 export const PACKAGES = [
@@ -121,7 +122,7 @@ export const SEED_CLIENTS = [
   c('Jiří Fiala', 'Majitel', 'Zahradnictví Fiala', 'Služby', 'CZ', 'CZ', 'claude', 'messaged', 'business', 20000, 'CZK', '2026-11-11', [
     us('Dobrý den, pane Fialo, zahradnictví s přehledným webem a ceníkem realizací získávají zakázky i mimo sezónu. Můžu poslat ukázku?', '2026-11-11'),
   ]),
-  c('Eva Pokorná', 'Účetní', 'Účetnictví Pokorná', 'Finance', 'CZ', 'CZ', 'marek', 'messaged', 'start', 10000, 'CZK', '2026-11-10', [
+  c('Eva Pokorná', 'Účetní', 'Účetnictví Pokorná', 'Finance', 'CZ', 'CZ', 'marek', 'lost', 'start', 10000, 'CZK', '2026-11-10', [
     us('Dobrý den, paní Pokorná, pomáháme účetním s jednoduchým webem, který přivádí nové klienty z okolí. Mělo by to pro vás smysl?', '2026-11-10'),
   ]),
   c('Marco Ricci', 'Founder', 'Studio Volt', 'Agentura', 'INTL', 'IT', 'claude', 'messaged', 'business', 1500, 'EUR', '2026-11-12', [
