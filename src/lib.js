@@ -60,5 +60,7 @@ export function stats(clients) {
     openCount: open.length,
     wonCount: won.length,
     avg: won.length ? revenue / won.length : 0,
+    lostCount: clients.filter((c) => c.stage === 'lost').length,
+    lostValue: clients.filter((c) => c.stage === 'lost').reduce((s, c) => s + toCZK(c), 0),
   };
 }

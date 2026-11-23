@@ -68,7 +68,14 @@ export function Kpis({ clients, currency }) {
         label="Uzavřené weby"
         accent="#34D399"
         delay={0.12}
-        sub={(() => { const lost = clients.filter((c) => c.stage === 'lost').length; const done = s.wonCount + lost; return done ? `úspěšnost ${Math.round((s.wonCount / done) * 100)} % · ${lost} nevyšlo` : 'zatím nic uzavřeno'; })()}
+        sub={
+          s.wonCount + s.lostCount ? (
+            <span className="num">
+              úspěšnost {Math.round((s.wonCount / (s.wonCount + s.lostCount)) * 100)} %
+              {s.lostCount > 0 && <span className="text-red-300/90"> · nevyšlo {s.lostCount} (ušlo {money(fromCZK(s.lostValue, currency), currency)})</span>}
+            </span>
+          ) : 'zatím nic uzavřeno'
+        }
       >
         <Counter value={s.wonCount} />
       </KpiCard>

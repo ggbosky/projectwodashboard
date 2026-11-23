@@ -2,7 +2,7 @@ import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Columns3, Globe, List, Palette, LoaderCircle, LogOut, MapPin, Plus, RotateCcw, Search, ShieldCheck, UserCog, X } from 'lucide-react';
 import { RATES } from './data';
-import { fixStage, getTeam, memberOf, norm, setTeam, stageOf, today } from './lib';
+import { fixStage, fromCZK, getTeam, memberOf, money, norm, setTeam, stageOf, toCZK, today } from './lib';
 import { isAdmin, remote, useCrm, useSession } from './store';
 import { Avatar, LinkedInGlyph, Logo, LogoMark, Segmented } from './components/ui';
 import { Kpis, TeamCards } from './components/Dashboard';
@@ -92,7 +92,16 @@ function Crm({ session, auth }) {
     guard(c, `přesunout klienta do fáze „${stageOf(stage).name}“`, () => {
       const claim = !c.owner;
       patch(id, { stage, ...(claim ? { owner: me } : {}) });
-      notify(claim ? `${c.name} → ${stageOf(stage).short} · přiřazeno: ${meName}` : `${c.name} → ${stageOf(stage).short}`);
+      // U přesunu z/do „Nevyšlo“ řekneme, o kolik se pohnula čísla.
+      const amount = money(fromCZK(toCZK(c), currency), currency);
+      const open = ['messaged', 'proposal', 'sent', 'meeting'];
+      const effect =
+        stage === 'lost' && c.stage === 'won' ? ` · obrat −${amount}`
+        : stage === 'lost' && open.includes(c.stage) ? ` · pipeline −${amount}`
+        : c.stage === 'lost' && stage === 'won' ? ` · obrat +${amount}`
+        : c.stage === 'lost' && open.includes(stage) ? ` · pipeline +${amount}`
+        : '';
+      notify(`${c.name} → ${stageOf(stage).short}${effect}${claim ? ` · přiřazeno: ${meName}` : ''}`, stage === 'lost');
     });
   };
 
